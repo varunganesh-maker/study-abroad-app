@@ -21,7 +21,7 @@ Varun has very little coding experience (some Python) and has Claude write all t
 - Apple frameworks: **Photos (PhotoKit)** for the camera roll, **Core Location** for geocoding and
   (phase 2) visit detection with `CLVisit`.
 - Planned: SwiftData + iCloud (CloudKit) for storage; one small serverless function (e.g. Cloudflare
-  Workers) to hold Google Places + Claude API keys for recommendations.
+  Workers) to hold the Google Places key for recommendations.
 - No paid Apple Developer account yet: builds use free signing and expire from the phone after 7 days.
   Re-run from Xcode to reinstall.
 
@@ -113,14 +113,15 @@ connector to read a frame before changing a screen. Accent colour is indigo (Acc
   and a setting "auto-add new photos: for a trip's dates / from now on / off". Apps can't hook into
   Apple's Camera app; auto-add is the substitute.
 - Budget is **~$0/month**. Free tiers only (CloudKit in the user's own iCloud, Apple geocoding,
-  Google Places free allowance behind a Cloudflare Worker; CloudKit later, with a paid account). Anything paid (e.g. Claude Haiku for
-  "why you'll like it", ~$1-3/mo) needs Varun's yes first.
+  Google Places free allowance behind a Cloudflare Worker; CloudKit later, with a paid account). Anything paid needs Varun's yes first.
+  Varun said **no** to ~$1-3/mo for Claude-written recommendation reasons (Nov 27): show plain,
+  app-built reasons ("Similar to X, which you rated 9"). The Worker holds only the Google Places key.
 - Music: **Spotify**, not Apple Music. Spotify's 2026 dev-mode rules cap API apps at 5 Premium users,
   so use Spotify **embed players** from a pasted link, not the Spotify API/SDK.
 - **No paid Apple Developer account for now** (Varun, Nov 27): build everything on free signing.
   No CloudKit (use a backup file exported to Files/iCloud Drive instead), no widget (needs App Groups),
   no TestFlight. Don't add capabilities free signing can't provision. Builds expire after 7 days, so
-  in Australia Varun needs the Mac to reinstall, or buys the account before leaving.
+  Varun is bringing the Mac to Australia and reinstalls from Xcode weekly.
 - Phone: plan for iPhone 15 (no Camera Control, no Apple Intelligence on the base model).
 - Name and branding are deferred; keep the Figma style.
 
