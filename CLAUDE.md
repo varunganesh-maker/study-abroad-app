@@ -32,19 +32,36 @@ The Xcode project uses a *synchronized folder* (Xcode 16+): any `.swift` file ad
 ```
 StudyAbroad/
   StudyAbroadApp.swift      app entry point
-  ContentView.swift         permission gate + tab bar (Map, Cities)
-  Models/                   PhotoMemory (pointer to a camera roll item), CityCluster
+  ContentView.swift         permission gate + tab bar (Memories, Cities)
+  Models/                   PhotoMemory (pointer to a camera roll item), CityCluster,
+                            Visit (SwiftData: detected visit + rating + recap)
   Services/
     PhotoLibraryScanner     reads geotagged photos/videos from Photos
     CityGrouper             groups memories into cities (see below)
     KnownCities             Australian city circles (geocoder returns suburbs there)
     MemoryStore             app state, scans on launch and each time the app opens
     PhotoLoader             loads thumbnails / full images / videos on demand
-  Views/                    map, city list, city grid, full-screen viewer, permission screen
+    LocationProvider        current location for the map sparkle + "You're in…" card; asks for Always
+    VisitMonitor            CLVisit monitoring -> pending Visit + local notification (created at app launch)
+    PlaceNamer              coordinate -> nearest point of interest + suburb + city
+  Views/
+    Theme                   colours from the Figma mockups
+    MemoriesMapView         night-style map home screen
+    CityStoryView           a city's page: latest-day card + "Your days" row
+    AllMemoriesView         every memory in a city, by day or by type
+    MemoryViewer            full-screen story viewer with custom video controls
+    VisitReviewView         "You've been here" sheet: 0-10 rating slider, recap, Save / Not a visit
+    CityListView, PermissionView, AssetThumbnail
 ```
 
 Settings that would normally live in Info.plist are build settings (`INFOPLIST_KEY_*`) in
 `project.pbxproj`, e.g. the photo permission message.
+
+## Design
+
+Screens follow Varun's Figma mockups: https://www.figma.com/design/XiGd2aOYGruzViIPRr56sN
+(10 screens; Memories map, Sydney stories, All memories and Memory viewer are built). Use the Figma
+connector to read a frame before changing a screen. Accent colour is indigo (AccentColor asset).
 
 ## How city grouping works (phase 1)
 
@@ -70,7 +87,9 @@ Settings that would normally live in Info.plist are build settings (`INFOPLIST_K
 1. **Memories map** (in progress). Done: scan camera roll, group by city, map pins with photo
    thumbnails, city grid, full-screen swipe viewer with video. Next: places within a city (~100 m
    clusters), city "story" view (Instagram-stories style, videos autoplay muted), saving to SwiftData.
-2. **Visits.** Background `CLVisit` detection, visit inbox ("You were at Bondi for 2 h, rate it?"),
+2. **Visits** (in progress). Done: CLVisit detection, place naming, "You've been here" sheet, rating +
+   recap saved with SwiftData, "Places you loved" on the city page, DEBUG-only "Test visit" button on
+   the Cities tab. Ignores a spot after two "Not a visit"s. Next: visit list / place page. Original plan: Background `CLVisit` detection, visit inbox ("You were at Bondi for 2 h, rate it?"),
    rating 1 to 10 + recap, place page. (Reports of iOS 26 `didVisit` regressions: keep a backup such
    as significant-location-change.)
 3. **Discover.** Google Places (New) for candidates, Claude re-ranks against Varun's ratings and writes

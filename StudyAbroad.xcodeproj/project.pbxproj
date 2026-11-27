@@ -193,6 +193,8 @@
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_KEY_CFBundleDisplayName = "Study Abroad";
+				INFOPLIST_KEY_NSLocationAlwaysAndWhenInUseUsageDescription = "Study Abroad notices when you spend time somewhere (a café, a beach, a museum) so it can ask how it was. Your location stays on your phone.";
+				INFOPLIST_KEY_NSLocationWhenInUseUsageDescription = "Study Abroad uses your location to show where you are on your memories map and which city you are in. It stays on your phone.";
 				INFOPLIST_KEY_NSPhotoLibraryUsageDescription = "Study Abroad reads where your photos and videos were taken so it can put them on your memories map. Nothing leaves your phone.";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
@@ -224,6 +226,8 @@
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_KEY_CFBundleDisplayName = "Study Abroad";
+				INFOPLIST_KEY_NSLocationAlwaysAndWhenInUseUsageDescription = "Study Abroad notices when you spend time somewhere (a café, a beach, a museum) so it can ask how it was. Your location stays on your phone.";
+				INFOPLIST_KEY_NSLocationWhenInUseUsageDescription = "Study Abroad uses your location to show where you are on your memories map and which city you are in. It stays on your phone.";
 				INFOPLIST_KEY_NSPhotoLibraryUsageDescription = "Study Abroad reads where your photos and videos were taken so it can put them on your memories map. Nothing leaves your phone.";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;

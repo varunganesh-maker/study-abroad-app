@@ -1,15 +1,26 @@
 import SwiftUI
 
-/// A square thumbnail for one camera roll item, loaded lazily.
+/// A thumbnail for one camera roll item, loaded lazily, cropped to fill the given size.
 struct AssetThumbnail: View {
     let memory: PhotoMemory
-    var side: CGFloat = 120
+    var width: CGFloat
+    var height: CGFloat
     @State private var image: UIImage?
     @Environment(\.displayScale) private var displayScale
 
+    init(memory: PhotoMemory, side: CGFloat = 120) {
+        self.init(memory: memory, width: side, height: side)
+    }
+
+    init(memory: PhotoMemory, width: CGFloat, height: CGFloat) {
+        self.memory = memory
+        self.width = width
+        self.height = height
+    }
+
     var body: some View {
         Color.secondary.opacity(0.15)
-            .frame(width: side, height: side)
+            .frame(width: width, height: height)
             .overlay {
                 if let image {
                     Image(uiImage: image)
@@ -18,17 +29,18 @@ struct AssetThumbnail: View {
                 }
             }
             .clipped()
-            .overlay(alignment: .bottomTrailing) {
-                if memory.isVideo {
-                    Image(systemName: "play.fill")
-                        .font(.caption2)
+            .overlay(alignment: .bottomLeading) {
+                // "▶ 0:24" on videos, as in the mockups. Skipped on tiny thumbnails.
+                if memory.isVideo && width >= 80 {
+                    Text("▶ \(memory.durationText)")
+                        .font(.footnote)
                         .foregroundStyle(.white)
-                        .padding(4)
-                        .shadow(radius: 2)
+                        .shadow(color: .black.opacity(0.6), radius: 2)
+                        .padding(8)
                 }
             }
             .task(id: memory.id) {
-                let px = max(side, 100) * displayScale
+                let px = max(width, height, 100) * displayScale
                 image = await PhotoLoader.shared.image(for: memory.id, targetSize: CGSize(width: px, height: px))
             }
     }
