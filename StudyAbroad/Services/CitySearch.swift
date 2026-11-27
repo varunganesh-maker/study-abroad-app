@@ -18,7 +18,7 @@ enum CitySearch {
         let q = query.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !q.isEmpty else {
             return cities
-                .sorted { newest($0) > newest($1) }
+                .sorted { $0.newestDate > $1.newestDate }
                 .map { Result(city: $0, snippet: nil) }
         }
         var ranked: [(rank: Int, result: Result)] = []
@@ -57,9 +57,5 @@ enum CitySearch {
         let before = start == flat.startIndex ? "" : "…"
         let after = end == flat.endIndex ? "" : "…"
         return before + String(flat[start..<end]) + after
-    }
-
-    private static func newest(_ city: CityCluster) -> Date {
-        city.memories.compactMap(\.takenAt).max() ?? .distantPast
     }
 }

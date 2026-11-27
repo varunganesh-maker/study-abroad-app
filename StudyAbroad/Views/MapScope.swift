@@ -96,12 +96,7 @@ enum MapScope: String, CaseIterable, Identifiable {
                 .distance(from: location)
             if distance < 60_000 { return (nearest, true) }
         }
-        let latest = cities.max { newest($0) < newest($1) }
+        let latest = cities.max { $0.newestDate < $1.newestDate }
         return latest.map { ($0, false) }
-    }
-
-    /// When the newest memory in a city was taken (notes count too).
-    private static func newest(_ city: CityCluster) -> Date {
-        city.memories.compactMap(\.takenAt).max() ?? .distantPast
     }
 }

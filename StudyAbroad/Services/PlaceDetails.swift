@@ -25,6 +25,7 @@ enum PlaceDetails {
             let otherName = other.placeName.trimmingCharacters(in: .whitespaces).lowercased()
             return !name.isEmpty && name == otherName && distance <= sameNameMeters
         }
+        // The page's own visit always shows, even if it isn't in `visits` (e.g. just changed).
         if !matches.contains(where: { $0 === visit }) { matches.append(visit) }
         return matches.sorted { $0.arrival > $1.arrival }
     }
