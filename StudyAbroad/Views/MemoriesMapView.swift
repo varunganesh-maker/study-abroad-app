@@ -26,7 +26,10 @@ struct MemoriesMapView: View {
                 .navigationDestination(for: CityCluster.self) { city in
                     CityStoryView(city: city)
                 }
-                .task { location.refresh() }
+                .task {
+                    location.refresh()
+                    VisitMonitor.requestNotificationPermission()
+                }
         }
     }
 

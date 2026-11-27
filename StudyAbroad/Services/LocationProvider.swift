@@ -2,8 +2,9 @@ import CoreLocation
 import Observation
 
 /// Where the phone is right now, used for the sparkle on the map and the
-/// "You're in Sydney" card. Asks for "While Using the App" permission only,
-/// and only looks up the location when the map is opened (no background tracking yet).
+/// "You're in Sydney" card. Only looks up the location when the map is opened.
+/// It asks for "Always" permission so visit check-ins (VisitMonitor) work in the background.
+/// iOS first shows the normal "While Using the App" prompt, then later offers to upgrade to Always.
 @MainActor
 @Observable
 final class LocationProvider {
@@ -21,7 +22,7 @@ final class LocationProvider {
     /// Call when the map appears. First time, iOS shows the permission prompt.
     func refresh() {
         switch manager.authorizationStatus {
-        case .notDetermined: manager.requestWhenInUseAuthorization()
+        case .notDetermined: manager.requestAlwaysAuthorization()
         case .authorizedWhenInUse, .authorizedAlways: manager.requestLocation()
         default: break
         }

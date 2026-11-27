@@ -1,3 +1,4 @@
+import SwiftData
 import SwiftUI
 
 /// A city's page ("Sydney stories" in the Figma file): a big card for your latest day,
@@ -7,6 +8,14 @@ struct CityStoryView: View {
 
     /// Which memories the full-screen viewer is showing, and where it starts.
     @State private var playing: ViewerRequest?
+    @Query(filter: #Predicate<Visit> { $0.statusRaw == "saved" }) private var savedVisits: [Visit]
+
+    /// Your best-rated places in this city (7 and up), best first.
+    private var lovedPlaces: [Visit] {
+        savedVisits
+            .filter { $0.city == city.name && ($0.rating ?? 0) >= 7 }
+            .sorted { ($0.rating ?? 0) > ($1.rating ?? 0) }
+    }
 
     var body: some View {
         let days = city.days
@@ -44,6 +53,34 @@ struct CityStoryView: View {
                 }
                 .scrollIndicators(.hidden)
                 .padding(.horizontal, -20) // let the row run to the screen edges
+
+                if !lovedPlaces.isEmpty {
+                    Text("Places you loved")
+                        .font(.title2.bold())
+                        .padding(.top, 26)
+                        .padding(.bottom, 10)
+                    ForEach(lovedPlaces.prefix(5)) { visit in
+                        HStack(alignment: .firstTextBaseline) {
+                            Text(visit.displayName)
+                            Spacer()
+                            Text(visit.rating ?? 0, format: .number.precision(.fractionLength(1)))
+                                .bold()
+                                .foregroundStyle(.tint)
+                                .monospacedDigit()
+                        }
+                        .font(.subheadline)
+                        .padding(.vertical, 6)
+                        .padding(.horizontal, 2)
+                        if !visit.recap.isEmpty {
+                            Text(visit.recap)
+                                .font(.footnote)
+                                .foregroundStyle(.secondary)
+                                .lineLimit(2)
+                                .padding(.horizontal, 2)
+                                .padding(.bottom, 4)
+                        }
+                    }
+                }
             }
             .padding(.horizontal, 20)
             .padding(.bottom, 30)

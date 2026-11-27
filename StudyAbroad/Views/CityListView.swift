@@ -1,8 +1,10 @@
+import CoreLocation
 import SwiftUI
 
 /// Second tab: every city as a list, most memories first.
 struct CityListView: View {
     @Environment(MemoryStore.self) private var store
+    @Environment(VisitMonitor.self) private var visits
 
     var body: some View {
         NavigationStack {
@@ -30,6 +32,19 @@ struct CityListView: View {
                 CityStoryView(city: city)
             }
             .refreshable { store.scan() }
+            #if DEBUG
+            .toolbar {
+                // Only in builds run from Xcode: pretend you just spent an hour where you are now,
+                // so you can try "You've been here" without walking anywhere.
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button("Test visit", systemImage: "mappin.and.ellipse") {
+                        let surryHills = CLLocationCoordinate2D(latitude: -33.8862, longitude: 151.2108)
+                        let here = CLLocationManager().location?.coordinate ?? surryHills
+                        visits.record(coordinate: here, arrival: .now.addingTimeInterval(-55 * 60), departure: .now)
+                    }
+                }
+            }
+            #endif
             .overlay {
                 if store.cities.isEmpty {
                     if store.isScanning {
