@@ -80,7 +80,10 @@ final class VisitMonitor {
 
     /// Fills in names for visits saved while offline. Called when the app opens.
     func nameUnnamedVisits() {
-        let unnamed = (try? context.fetch(FetchDescriptor<Visit>(predicate: #Predicate<Visit> { $0.placeName == "" }))) ?? []
+        let placeholder = Self.manualPlaceholder
+        let unnamed = (try? context.fetch(FetchDescriptor<Visit>(predicate: #Predicate<Visit> {
+            $0.placeName == "" || $0.placeName == placeholder
+        }))) ?? []
         for visit in unnamed {
             Task {
                 let place = await PlaceNamer.lookUp(visit.coordinate)

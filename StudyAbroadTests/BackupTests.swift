@@ -9,6 +9,7 @@ import Testing
 struct BackupTests {
     private let sydney = CLLocationCoordinate2D(latitude: -33.8568, longitude: 151.2153)
     private let noon = Date(timeIntervalSince1970: 1_800_000_000)
+    private let noteKey = "note-6F9619FF-8B86-D011-B42D-00C04FC964FF"
     /// Keeps the in-memory databases alive for the whole test.
     private let containers = Containers()
 
@@ -31,7 +32,7 @@ struct BackupTests {
         let library = MemoryLibrary(context: context)
         library.addAsset("photo-1", kind: .photo, source: .picker, coordinate: nil)
         library.setCaption("Bondi at dusk", for: "photo-1")
-        library.addNote(kind: .text, text: "Barista remembered me", coordinate: sydney, takenAt: noon, key: "note-1")
+        library.addNote(kind: .text, text: "Barista remembered me", coordinate: sydney, takenAt: noon, key: noteKey)
         let visit = Visit(coordinate: sydney, arrival: noon, departure: noon.addingTimeInterval(3600))
         visit.placeName = "AP Bakery"
         visit.rating = 9.2
@@ -63,7 +64,7 @@ struct BackupTests {
         #expect(result.memoriesAdded == 2)
         #expect(result.visitsAdded == 1)
         #expect(library.captions["photo-1"] == "Bondi at dusk")
-        #expect(library.captions["note-1"] == "Barista remembered me")
+        #expect(library.captions[noteKey] == "Barista remembered me")
         let visits = try empty.fetch(FetchDescriptor<Visit>())
         #expect(visits.first?.rating == 9.2)
         #expect(visits.first?.status == .saved)
@@ -115,7 +116,7 @@ struct BackupTests {
 
         #expect(result.notFound == 1)
         #expect(result.memoriesAdded == 1) // the note
-        #expect(MemoryLibrary(context: phone).contains("note-1"))
+        #expect(MemoryLibrary(context: phone).contains(noteKey))
     }
 
     @Test func newPhoneIdsAreUsedWhenPhotosKnowsThem() throws {
@@ -127,6 +128,22 @@ struct BackupTests {
 
         #expect(result.notFound == 0)
         #expect(MemoryLibrary(context: phone).captions["new-phone-id"] == "Bondi at dusk")
+    }
+
+    @Test func ignoresNoteNamesThatCouldEscapeTheVoiceNotesFolder() throws {
+        var file = BackupFile()
+        file.memories = [BackupFile.Memory(
+            key: "../../default.store", kind: "voice", source: "note", caption: "", isHidden: false,
+            latitude: sydney.latitude, longitude: sydney.longitude, takenAt: noon, addedAt: noon, duration: 1,
+            cloudID: nil, audio: Data("not audio".utf8)
+        )]
+        let phone = try freshContext()
+
+        let result = Backup.restore(file, into: phone)
+
+        #expect(result.memoriesAdded == 0)
+        #expect(Backup.isValidNoteKey(noteKey))
+        #expect(!Backup.isValidNoteKey("note-../../x"))
     }
 
     @Test func rejectsAFileThatIsNotABackup() {

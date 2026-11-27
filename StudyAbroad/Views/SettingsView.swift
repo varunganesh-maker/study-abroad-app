@@ -53,7 +53,7 @@ struct SettingsView: View {
                 }
 
                 Section {
-                    Button("Save a backup…") { saveBackup() }
+                    Button("Save a backup…") { Task { await saveBackup() } }
                         .accessibilityIdentifier("saveBackup")
                     Button("Restore from a backup…") { importing = true }
                     if let backupMessage {
@@ -71,7 +71,7 @@ struct SettingsView: View {
 
                 Section {
                     LabeledContent("Photos and videos", value: "Stay in your camera roll")
-                    LabeledContent("Captions and notes", value: "On this phone")
+                    LabeledContent("Captions and notes", value: "On this phone, and in backups you save")
                 } header: {
                     Text("Privacy")
                 } footer: {
@@ -100,8 +100,10 @@ struct SettingsView: View {
                 case .success:
                     lastBackup = Date.now.timeIntervalSince1970
                     backupMessage = "Backup saved."
-                case .failure:
-                    backupMessage = "The backup wasn't saved."
+                case .failure(let error):
+                    // Tapping Cancel in the save sheet isn't an error.
+                    let cancelled = (error as? CocoaError)?.code == .userCancelled
+                    backupMessage = cancelled ? nil : "The backup wasn't saved."
                 }
             }
             .fileImporter(isPresented: $importing, allowedContentTypes: [.json]) { result in
@@ -122,9 +124,11 @@ struct SettingsView: View {
         return days >= 7 ? when + " Time for a new one." : when
     }
 
-    private func saveBackup() {
+    private func saveBackup() async {
+        backupMessage = "Preparing the backup…"
         do {
-            backupDocument = BackupDocument(data: try store.makeBackup())
+            backupDocument = BackupDocument(data: try await store.makeBackup())
+            backupMessage = nil
             exporting = true
         } catch {
             backupMessage = "Couldn't make a backup: \(error.localizedDescription)"

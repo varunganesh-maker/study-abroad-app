@@ -134,6 +134,11 @@ enum Backup {
 
         for memory in file.memories {
             let isNote = memory.kind == PhotoMemory.Kind.text.rawValue || memory.kind == PhotoMemory.Kind.voice.rawValue
+            // The file could have been edited: only accept well-formed note names (they become file names)
+            // and real coordinates.
+            if isNote && !isValidNoteKey(memory.key) { continue }
+            if let lat = memory.latitude, let lon = memory.longitude,
+               !CapturePlacement.isUsable(CLLocationCoordinate2D(latitude: lat, longitude: lon)) { continue }
             var key = memory.key
             if !isNote {
                 if !assetExists(key), let mapped = localIDs[key] { key = mapped }
@@ -158,15 +163,17 @@ enum Backup {
             entry.takenAt = memory.takenAt
             entry.addedAt = memory.addedAt
             entry.duration = memory.duration
-            if let audio = memory.audio { try? audio.write(to: VoiceNoteFiles.url(key: key)) }
+            if entry.kind == .voice, let audio = memory.audio { try? audio.write(to: VoiceNoteFiles.url(key: key)) }
             context.insert(entry)
             byKey[key] = entry
             result.memoriesAdded += 1
-            if !memory.caption.isEmpty { result.captionsFilled += 1 }
+            if !isNote && !memory.caption.isEmpty { result.captionsFilled += 1 }
         }
 
         let visits = (try? context.fetch(FetchDescriptor<Visit>())) ?? []
         for place in file.visits {
+            guard CapturePlacement.isUsable(CLLocationCoordinate2D(latitude: place.latitude, longitude: place.longitude))
+            else { continue }
             let duplicate = visits.contains {
                 abs($0.arrival.timeIntervalSince(place.arrival)) < 60
                     && abs($0.latitude - place.latitude) < 0.0005 && abs($0.longitude - place.longitude) < 0.0005
@@ -177,7 +184,7 @@ enum Backup {
             visit.placeName = place.placeName
             visit.area = place.area
             visit.city = place.city
-            visit.rating = place.rating
+            visit.rating = place.rating.map { min(10, max(0, $0)) }
             visit.recap = place.recap
             visit.statusRaw = place.status
             context.insert(visit)
@@ -187,14 +194,25 @@ enum Backup {
         return result
     }
 
+    /// "note-" followed by a UUID, nothing else (so it can't point outside the voice notes folder).
+    nonisolated static func isValidNoteKey(_ key: String) -> Bool {
+        guard key.hasPrefix("note-") else { return false }
+        return UUID(uuidString: String(key.dropFirst(5))) != nil
+    }
+
     // MARK: Photos ids that work across phones
 
-    static func cloudIDs(for localIDs: [String]) -> [String: String] {
-        guard !localIDs.isEmpty else { return [:] }
-        let mappings = PHPhotoLibrary.shared().cloudIdentifierMappings(forLocalIdentifiers: localIDs)
+    /// Slow for big libraries, so call it off the main thread; asks Photos 500 ids at a time.
+    nonisolated static func cloudIDs(for localIDs: [String]) -> [String: String] {
         var result: [String: String] = [:]
-        for (local, mapping) in mappings {
-            if case .success(let cloud) = mapping { result[local] = cloud.stringValue }
+        var start = 0
+        while start < localIDs.count {
+            let chunk = Array(localIDs[start..<min(start + 500, localIDs.count)])
+            let mappings = PHPhotoLibrary.shared().cloudIdentifierMappings(forLocalIdentifiers: chunk)
+            for (local, mapping) in mappings {
+                if case .success(let cloud) = mapping { result[local] = cloud.stringValue }
+            }
+            start += 500
         }
         return result
     }

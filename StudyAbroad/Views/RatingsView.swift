@@ -8,6 +8,7 @@ import SwiftUI
 struct RatingsView: View {
     @Environment(VisitMonitor.self) private var visits
     @Environment(\.modelContext) private var context
+    @Environment(\.reviewVisit) private var reviewVisit
     @Query(filter: #Predicate<Visit> { $0.statusRaw == "pending" && $0.placeName != "" },
            sort: \Visit.arrival, order: .reverse)
     private var waiting: [Visit]
@@ -15,7 +16,6 @@ struct RatingsView: View {
     private var rated: [Visit]
 
     @State private var location = LocationProvider()
-    @State private var reviewing: Visit?
     @State private var capturing = false
     @State private var message: String?
 
@@ -31,7 +31,7 @@ struct RatingsView: View {
                 if !waiting.isEmpty {
                     Section {
                         ForEach(waiting) { visit in
-                            Button { reviewing = visit } label: {
+                            Button { reviewVisit(visit) } label: {
                                 VisitRow(visit: visit, trailing: "Rate")
                             }
                             .buttonStyle(.plain)
@@ -48,7 +48,7 @@ struct RatingsView: View {
                             .foregroundStyle(.secondary)
                     }
                     ForEach(rated) { visit in
-                        Button { reviewing = visit } label: {
+                        Button { reviewVisit(visit) } label: {
                             VisitRow(visit: visit, trailing: visit.rating.map { $0.formatted(.number.precision(.fractionLength(1))) })
                         }
                         .buttonStyle(.plain)
@@ -60,10 +60,6 @@ struct RatingsView: View {
             }
             .listStyle(.insetGrouped)
             .toolbar(.hidden, for: .navigationBar)
-            .sheet(item: $reviewing) { visit in
-                VisitReviewView(visit: visit)
-                    .presentationDragIndicator(.hidden)
-            }
             .sheet(isPresented: $capturing) {
                 CaptureView()
             }
@@ -118,6 +114,11 @@ struct RatingsView: View {
 
     /// "I was here": rate the place you're at right now.
     private func iWasHere() {
+        let status = CLLocationManager().authorizationStatus
+        guard status != .denied && status != .restricted else {
+            message = "Location is off for Study Abroad. Turn it on in Settings › Study Abroad › Location."
+            return
+        }
         guard let here = location.location else {
             location.refresh()
             message = "Finding where you are… turn on Location Services for Study Abroad if this doesn't work, then tap ＋ again."

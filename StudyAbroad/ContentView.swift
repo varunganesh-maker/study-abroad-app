@@ -47,6 +47,9 @@ struct ContentView: View {
                 askLater = []
             }
         }
+        .environment(\.reviewVisit, ReviewVisitAction { visit in
+            if reviewing == nil { reviewing = visit }
+        })
         .onChange(of: waitingVisits.count) { _, _ in showNextVisit() }
         .onChange(of: store.access) { _, _ in showNextVisit() }
         .sheet(item: $reviewing, onDismiss: {

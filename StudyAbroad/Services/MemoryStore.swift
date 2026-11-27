@@ -188,10 +188,10 @@ final class MemoryStore {
     // MARK: Backup file
 
     /// Everything the app adds on top of your camera roll, ready to save to Files.
-    func makeBackup() throws -> Data {
+    func makeBackup() async throws -> Data {
         let assetKeys = library.allKeys(includingNotes: false)
-        return try Backup.make(context: library.context, cloudIDs: Backup.cloudIDs(for: assetKeys), rule: autoAddRule)
-            .encoded()
+        let cloudIDs = await Task.detached(priority: .userInitiated) { Backup.cloudIDs(for: assetKeys) }.value
+        return try Backup.make(context: library.context, cloudIDs: cloudIDs, rule: autoAddRule).encoded()
     }
 
     /// Restores a backup file on top of what's here (nothing you've changed since is overwritten).
@@ -201,7 +201,8 @@ final class MemoryStore {
                                     assetExists: Backup.assetExists)
         library.reload()
         captions = library.captions
-        if let raw = file.autoAddMode, let mode = AutoAddRule.Mode(rawValue: raw) {
+        // Only take the backup's auto-add setting if you haven't changed yours from the default.
+        if autoAddRule.mode == .all, let raw = file.autoAddMode, let mode = AutoAddRule.Mode(rawValue: raw) {
             var rule = AutoAddRule(mode: mode)
             rule.start = file.autoAddStart ?? .now
             rule.end = file.autoAddEnd ?? .now
