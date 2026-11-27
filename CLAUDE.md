@@ -4,7 +4,8 @@ A personal iPhone app for Varun's study-abroad semester in Australia. It turns t
 map of memories: places get logged, the camera roll sorts itself onto the map by city, and later
 the app recommends things to do based on what Varun actually rates highly.
 
-Full product plan: https://claude.ai/artifact/KFxnJczCN5xMxzU99j5KvD
+Current plan (v2, Nov 27 2026): https://claude.ai/artifact/5EocFSLuSThYZfDLwF8UHL
+Original product plan (v1): https://claude.ai/artifact/KFxnJczCN5xMxzU99j5KvD
 API research: https://claude.ai/artifact/Lz6NibGCGPySGwpCVXrjPC
 
 ## Who you're working with
@@ -82,21 +83,45 @@ connector to read a frame before changing a screen. Accent colour is indigo (Acc
 - The simulator has few geotagged photos. Drag photos onto the simulator window to add some, or test
   on the real phone.
 
-## Roadmap
+## Product goals (v2 plan)
 
-1. **Memories map** (in progress). Done: scan camera roll, group by city, map pins with photo
-   thumbnails, city grid, full-screen swipe viewer with video. Next: places within a city (~100 m
-   clusters), city "story" view (Instagram-stories style, videos autoplay muted), saving to SwiftData.
-2. **Visits** (in progress). Done: CLVisit detection, place naming, "You've been here" sheet, rating +
-   recap saved with SwiftData, "Places you loved" on the city page, DEBUG-only "Test visit" button on
-   the Cities tab. Ignores a spot after two "Not a visit"s. Next: visit list / place page. Original plan: Background `CLVisit` detection, visit inbox ("You were at Bondi for 2 h, rate it?"),
-   rating 1 to 10 + recap, place page. (Reports of iOS 26 `didVisit` regressions: keep a backup such
-   as significant-location-change.)
-3. **Discover.** Google Places (New) for candidates, Claude re-ranks against Varun's ratings and writes
-   a one-line "why". Tripadvisor for attractions. Skip Yelp (thin in Australia).
-4. **Beli + extras.** Beli has no API: screenshot sync (Vision OCR of Beli screenshots in the camera
-   roll) + "Rate in Beli" quick-switch buttons. Private-API sync only if Varun explicitly says go.
-   Camcorder import: clips have no GPS, so place them by matching timestamps to phone location history.
+- Varun leaves for Australia **Jan 3, 2027**. Build for a possible public App Store launch later
+  (no hard-coded personal data, real onboarding), but it's Varun's personal travel app for now.
+- The #1 thing to nail: **scrapbooking memories easily**, starting with captions on photos AND
+  videos (any length) and fast capture.
+- **Priority order:** 1 Captions + capture, 2 Visits & ratings, 3 Recommendations, 4 Trips,
+  5 Scrapbook, 6 Beli, 7 Camcorder import, 8 Sharing links (last; needs a server).
+- Capture: camera roll picker first, then in-app camera, voice notes, text notes, home screen widget,
+  and a setting "auto-add new photos: for a trip's dates / from now on / off". Apps can't hook into
+  Apple's Camera app; auto-add is the substitute.
+- Budget is **~$0/month**. Free tiers only (CloudKit in the user's own iCloud, Apple geocoding,
+  Google Places free allowance behind a Cloudflare Worker). Anything paid (e.g. Claude Haiku for
+  "why you'll like it", ~$1-3/mo) needs Varun's yes first.
+- Music: **Spotify**, not Apple Music. Spotify's 2026 dev-mode rules cap API apps at 5 Premium users,
+  so use Spotify **embed players** from a pasted link, not the Spotify API/SDK.
+- Phone: plan for iPhone 15 (no Camera Control, no Apple Intelligence on the base model).
+- Name and branding are deferred; keep the Figma style.
+
+## Roadmap to Jan 3 (must-ship line after week 5)
+
+Each week ends with a build Varun installs and uses.
+1. **Nov 30-Dec 6:** fix "View all" (swipe through every memory) and videos not showing; save
+   memories in SwiftData; captions on photos and videos. Varun buys the $99 dev account.
+2. **Dec 7-13:** camera roll picker, auto-add setting, in-app camera, voice + text notes, CloudKit backup.
+3. **Dec 14-20:** visit inbox, place page, manual "I was here", backup visit detection
+   (significant-location-change; iOS 26 `didVisit` regressions reported), widget.
+4. **Dec 21-27:** recommendations (food, sights, nightlife, day trips, hidden gems; ranked by Varun's
+   ratings; want-to-go list), trips with legs and auto-sorting.
+5. **Dec 28-Jan 2:** trip page + highlights, bug sweep, full council version check, TestFlight build.
+
+**Must-ship line.** Stretch: scrapbook v1 (auto-draft from dates, 3-4 templates, reorder).
+If a week slips, cut in this order: widget, itinerary drag-and-drop, hidden gems. Never cut captions,
+capture, visits or basic recommendations.
+From Sydney (Jan-Feb 2027): full scrapbook (free layout, stickers, ticket stubs, Spotify per page or
+section), AI trip recap, Beli screenshot sync, camcorder import, sharing links.
+
+Already built: memories map, city grouping, Figma-styled city/all-memories/viewer screens, CLVisit
+detection with "You've been here" sheet (0-10 rating + recap in SwiftData), DEBUG "Test visit" button.
 
 ## Data model (planned)
 
@@ -107,6 +132,9 @@ so imports never overwrite Varun's own ratings).
 
 - Photos never leave the phone. The app stores pointers (`localIdentifier`), not copies.
 - Ask Varun before starting a new phase or anything that costs money.
+- Beli has no API: screenshot sync (Vision OCR) + "Rate in Beli" buttons. Private-API sync only if Varun explicitly says go.
+  BeliRating stays separate so imports never overwrite Varun's own ratings.
+- Camcorder clips have no GPS: place them by matching timestamps to phone location history.
 
 ## Engineering Council Protocol (Lead Engineer)
 
