@@ -1,0 +1,24 @@
+name: Build
+
+# Compiles the app for the iOS Simulator on every pull request,
+# so broken code is caught before it reaches Varun's iPhone.
+on:
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: macos-15
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - name: Show Xcode version
+        run: xcodebuild -version
+      - name: Build for the iOS Simulator
+        run: |
+          xcodebuild build \
+            -project StudyAbroad.xcodeproj \
+            -target StudyAbroad \
+            -sdk iphonesimulator \
+            -configuration Debug \
+            CODE_SIGNING_ALLOWED=NO
