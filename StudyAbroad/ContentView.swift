@@ -15,7 +15,7 @@ struct ContentView: View {
             case .granted:
                 TabView {
                     MemoriesMapView()
-                        .tabItem { Label("Map", systemImage: "map") }
+                        .tabItem { Label("Memories", systemImage: "map") }
                     CityListView()
                         .tabItem { Label("Cities", systemImage: "building.2") }
                 }

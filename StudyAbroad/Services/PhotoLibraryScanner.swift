@@ -24,7 +24,10 @@ enum PhotoLibraryScanner {
                     id: asset.localIdentifier,
                     coordinate: coordinate,
                     takenAt: asset.creationDate,
-                    isVideo: asset.mediaType == .video
+                    isVideo: asset.mediaType == .video,
+                    duration: asset.duration,
+                    pixelWidth: asset.pixelWidth,
+                    pixelHeight: asset.pixelHeight
                 ))
             }
             return memories

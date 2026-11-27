@@ -11,14 +11,14 @@ struct CityListView: View {
                     HStack(spacing: 12) {
                         if let cover = city.cover {
                             AssetThumbnail(memory: cover, side: 56)
-                                .clipShape(RoundedRectangle(cornerRadius: 10))
+                                .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
                         }
                         VStack(alignment: .leading, spacing: 2) {
                             Text(city.name).font(.headline)
                             Text([city.country, city.dateRangeText].compactMap { $0 }.joined(separator: " · "))
                                 .font(.subheadline)
                                 .foregroundStyle(.secondary)
-                            Text(city.subtitle)
+                            Text(city.statsText)
                                 .font(.caption)
                                 .foregroundStyle(.secondary)
                         }
@@ -27,7 +27,7 @@ struct CityListView: View {
             }
             .navigationTitle("Cities")
             .navigationDestination(for: CityCluster.self) { city in
-                CityDetailView(city: city)
+                CityStoryView(city: city)
             }
             .refreshable { store.scan() }
             .overlay {

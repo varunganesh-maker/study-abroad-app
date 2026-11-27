@@ -32,7 +32,7 @@ The Xcode project uses a *synchronized folder* (Xcode 16+): any `.swift` file ad
 ```
 StudyAbroad/
   StudyAbroadApp.swift      app entry point
-  ContentView.swift         permission gate + tab bar (Map, Cities)
+  ContentView.swift         permission gate + tab bar (Memories, Cities)
   Models/                   PhotoMemory (pointer to a camera roll item), CityCluster
   Services/
     PhotoLibraryScanner     reads geotagged photos/videos from Photos
@@ -40,11 +40,24 @@ StudyAbroad/
     KnownCities             Australian city circles (geocoder returns suburbs there)
     MemoryStore             app state, scans on launch and each time the app opens
     PhotoLoader             loads thumbnails / full images / videos on demand
-  Views/                    map, city list, city grid, full-screen viewer, permission screen
+    LocationProvider        current location (While Using only) for the map sparkle + "You're in…" card
+  Views/
+    Theme                   colours from the Figma mockups
+    MemoriesMapView         night-style map home screen
+    CityStoryView           a city's page: latest-day card + "Your days" row
+    AllMemoriesView         every memory in a city, by day or by type
+    MemoryViewer            full-screen story viewer with custom video controls
+    CityListView, PermissionView, AssetThumbnail
 ```
 
 Settings that would normally live in Info.plist are build settings (`INFOPLIST_KEY_*`) in
 `project.pbxproj`, e.g. the photo permission message.
+
+## Design
+
+Screens follow Varun's Figma mockups: https://www.figma.com/design/XiGd2aOYGruzViIPRr56sN
+(10 screens; Memories map, Sydney stories, All memories and Memory viewer are built). Use the Figma
+connector to read a frame before changing a screen. Accent colour is indigo (AccentColor asset).
 
 ## How city grouping works (phase 1)
 
