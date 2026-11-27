@@ -44,7 +44,9 @@ final class VisitMonitor {
     }
 
     /// Saves a visit, looks up the place name, and sends a notification. Also used by the test button.
-    func record(coordinate: CLLocationCoordinate2D, arrival: Date, departure: Date) {
+    /// `manual`: you tapped "I was here", so skip the "you said Not a visit here before" filter and the
+    /// notification, and show the rating sheet straight away (named "This spot" until the lookup finishes).
+    func record(coordinate: CLLocationCoordinate2D, arrival: Date, departure: Date, manual: Bool = false) {
         let all = (try? context.fetch(FetchDescriptor<Visit>())) ?? []
         let here = CLLocation(latitude: coordinate.latitude, longitude: coordinate.longitude)
         func distance(_ visit: Visit) -> CLLocationDistance {
@@ -54,25 +56,34 @@ final class VisitMonitor {
         // Same visit reported twice.
         if all.contains(where: { abs($0.arrival.timeIntervalSince(arrival)) < 120 && distance($0) < 150 }) { return }
         // You've said "Not a visit" here twice already (home, the bus stop…): stop asking.
-        if all.filter({ $0.status == .dismissed && distance($0) < 100 }).count >= 2 { return }
+        if !manual && all.filter({ $0.status == .dismissed && distance($0) < 100 }).count >= 2 { return }
 
         let visit = Visit(coordinate: coordinate, arrival: arrival, departure: departure)
+        if manual { visit.placeName = Self.manualPlaceholder }
         context.insert(visit)
         try? context.save()
 
         Task {
             let place = await PlaceNamer.lookUp(coordinate)
-            visit.placeName = place.name ?? ""
+            if !manual || visit.placeName == Self.manualPlaceholder {
+                visit.placeName = place.name ?? (manual ? Self.manualPlaceholder : "")
+            }
             visit.area = place.area
             visit.city = place.city
             try? context.save()
-            Self.notify(about: visit)
+            if !manual { Self.notify(about: visit) }
         }
     }
 
+    /// Name shown for an "I was here" visit until (or if) the place can't be looked up.
+    static let manualPlaceholder = "This spot"
+
     /// Fills in names for visits saved while offline. Called when the app opens.
     func nameUnnamedVisits() {
-        let unnamed = (try? context.fetch(FetchDescriptor<Visit>(predicate: #Predicate<Visit> { $0.placeName == "" }))) ?? []
+        let placeholder = Self.manualPlaceholder
+        let unnamed = (try? context.fetch(FetchDescriptor<Visit>(predicate: #Predicate<Visit> {
+            $0.placeName == "" || $0.placeName == placeholder
+        }))) ?? []
         for visit in unnamed {
             Task {
                 let place = await PlaceNamer.lookUp(visit.coordinate)

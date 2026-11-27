@@ -1,7 +1,7 @@
 import SwiftData
 import SwiftUI
 
-/// Root screen: asks for photo access first, then shows the app's tabs.
+/// Root screen: asks for photo access first, then shows the app's tabs (Memories, Cities, Ratings).
 /// Also pops up "You've been here" whenever a detected visit is waiting for a rating.
 struct ContentView: View {
     @Environment(MemoryStore.self) private var store
@@ -29,6 +29,9 @@ struct ContentView: View {
                         .tabItem { Label("Memories", systemImage: "map") }
                     CityListView()
                         .tabItem { Label("Cities", systemImage: "building.2") }
+                    RatingsView()
+                        .tabItem { Label("Ratings", systemImage: "star") }
+                        .badge(waitingVisits.count)
                 }
             }
         }
@@ -44,6 +47,9 @@ struct ContentView: View {
                 askLater = []
             }
         }
+        .environment(\.reviewVisit, ReviewVisitAction { visit in
+            if reviewing == nil { reviewing = visit }
+        })
         .onChange(of: waitingVisits.count) { _, _ in showNextVisit() }
         .onChange(of: store.access) { _, _ in showNextVisit() }
         .sheet(item: $reviewing, onDismiss: {

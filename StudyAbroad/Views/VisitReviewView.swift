@@ -20,7 +20,7 @@ struct VisitReviewView: View {
         return store.cities.lazy
             .flatMap(\.memories)
             .first { memory in
-                guard let taken = memory.takenAt, window.contains(taken), !memory.isVideo else { return false }
+                guard let taken = memory.takenAt, window.contains(taken), memory.isPhoto else { return false }
                 let spot = CLLocation(latitude: memory.coordinate.latitude, longitude: memory.coordinate.longitude)
                 return spot.distance(from: here) < 300
             }

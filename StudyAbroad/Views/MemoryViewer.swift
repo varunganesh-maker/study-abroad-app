@@ -9,7 +9,12 @@ struct MemoryViewer: View {
     let start: PhotoMemory
     @State private var currentID: String
     @State private var video = VideoPlayback()
+    @State private var editingCaption: PhotoMemory?
+    @State private var addingNoteFor: PhotoMemory?
+    @State private var confirmingRemove = false
+    @State private var captionExpanded = false
     @Environment(\.dismiss) private var dismiss
+    @Environment(MemoryStore.self) private var store
 
     init(title: String, memories: [PhotoMemory], start: PhotoMemory) {
         self.title = title
@@ -43,21 +48,56 @@ struct MemoryViewer: View {
         .overlay(alignment: .bottom) { caption }
         .environment(\.colorScheme, .dark)
         .onAppear { video.load(current) }
-        .onChange(of: currentID) { _, _ in video.load(current) }
+        .onChange(of: currentID) { _, _ in
+            captionExpanded = false
+            video.load(current)
+        }
         .onDisappear { video.stop() }
+        .sheet(item: $editingCaption) { memory in
+            CaptionEditorView(memory: memory)
+        }
+        .sheet(item: $addingNoteFor, onDismiss: { video.load(current) }) { memory in
+            CaptureView(attachedTo: memory)
+        }
+        .confirmationDialog(removeTitle, isPresented: $confirmingRemove, titleVisibility: .visible) {
+            Button(current?.isNote == true ? "Delete note" : "Remove from app", role: .destructive) {
+                guard let current else { return }
+                video.stop()
+                store.remove(current.id)
+                dismiss()
+            }
+        } message: {
+            Text(current?.isNote == true
+                 ? "This note only lives in the app, so it will be gone for good."
+                 : "It stays in your camera roll. You can bring it back in Settings.")
+        }
+    }
+
+    private var removeTitle: String {
+        current?.isNote == true ? "Delete this note?" : "Remove from the app?"
+    }
+
+    /// The caption for the memory on screen ("" if none). Text notes show their words on the page instead.
+    private var currentCaption: String {
+        guard let current, current.kind != .text else { return "" }
+        return store.caption(for: current.id)
     }
 
     // MARK: Top: close button + story progress
 
     private var topBar: some View {
         VStack(alignment: .leading, spacing: 14) {
-            Button { dismiss() } label: {
-                Image(systemName: "xmark")
-                    .font(.body.weight(.semibold))
-                    .frame(width: 44, height: 44)
-                    .background(.ultraThinMaterial, in: Circle())
+            HStack {
+                Button { dismiss() } label: {
+                    Image(systemName: "xmark")
+                        .font(.body.weight(.semibold))
+                        .frame(width: 44, height: 44)
+                        .background(.ultraThinMaterial, in: Circle())
+                }
+                .accessibilityLabel("Close")
+                Spacer()
+                moreMenu
             }
-            .accessibilityLabel("Close")
 
             if memories.count <= 30 {
                 // One bar per memory, like stories.
@@ -78,23 +118,84 @@ struct MemoryViewer: View {
         .padding(.top, 10)
     }
 
+    /// "•••": caption, add a note next to this memory, remove.
+    private var moreMenu: some View {
+        Menu {
+            if let current {
+                Button {
+                    video.pause()
+                    editingCaption = current
+                } label: {
+                    if current.kind == .text {
+                        Label("Edit note", systemImage: "pencil")
+                    } else {
+                        Label(currentCaption.isEmpty ? "Add caption" : "Edit caption", systemImage: "text.bubble")
+                    }
+                }
+                Button {
+                    video.stop()
+                    addingNoteFor = current
+                } label: {
+                    Label("Add a note here", systemImage: "square.and.pencil")
+                }
+                Button(role: .destructive) {
+                    confirmingRemove = true
+                } label: {
+                    if current.isNote {
+                        Label("Delete note", systemImage: "trash")
+                    } else {
+                        Label("Remove from app", systemImage: "eye.slash")
+                    }
+                }
+            }
+        } label: {
+            Image(systemName: "ellipsis")
+                .font(.body.weight(.semibold))
+                .frame(width: 44, height: 44)
+                .background(.ultraThinMaterial, in: Circle())
+        }
+        .accessibilityLabel("More")
+    }
+
     // MARK: Bottom: caption, video controls, hint
 
     private var caption: some View {
-        VStack(alignment: .leading, spacing: 6) {
-            Text(title)
+        let caption = currentCaption
+        // A short caption becomes the headline (like "Bondi, on repeat" in the mockup);
+        // a long one sits under the city name and opens up when you tap it.
+        let captionIsHeadline = !caption.isEmpty && caption.count <= CaptionStyle.headlineLimit && !caption.contains("\n")
+        return VStack(alignment: .leading, spacing: 6) {
+            Text(captionIsHeadline ? caption : title)
                 .font(.title2.bold())
+                .accessibilityIdentifier("viewerHeadline")
+            if !caption.isEmpty && !captionIsHeadline {
+                longCaption(caption)
+            }
             if let date = current?.takenAt {
-                Text("\(date.formatted(.dateTime.day().month(.wide))) · \(date.formatted(date: .omitted, time: .shortened))")
+                Text("\(captionIsHeadline ? "\(title) · " : "")\(date.formatted(.dateTime.day().month(.wide))) · \(date.formatted(date: .omitted, time: .shortened))")
                     .font(.subheadline)
             }
             if let current {
-                Text("\(current.isVideo ? "Video" : "Photo") · \(currentIndex + 1) of \(memories.count)")
+                Text("\(current.kindName) · \(currentIndex + 1) of \(memories.count)")
                     .font(.footnote)
                     .opacity(0.85)
             }
+            if let current, caption.isEmpty, current.kind != .text {
+                Button {
+                    video.pause()
+                    editingCaption = current
+                } label: {
+                    Label("Add a caption", systemImage: "text.bubble")
+                        .font(.footnote.weight(.semibold))
+                        .padding(.horizontal, 12)
+                        .padding(.vertical, 7)
+                        .background(.ultraThinMaterial, in: Capsule())
+                }
+                .padding(.top, 6)
+                .accessibilityIdentifier("addCaptionButton")
+            }
 
-            if current?.isVideo == true {
+            if current?.isPlayable == true {
                 HStack(spacing: 14) {
                     Button { video.togglePlay() } label: {
                         Image(systemName: video.isPlaying ? "pause.fill" : "play.fill")
@@ -118,7 +219,7 @@ struct MemoryViewer: View {
                 .font(.footnote)
                 .opacity(0.85)
                 .frame(maxWidth: .infinity)
-                .padding(.top, current?.isVideo == true ? 8 : 24)
+                .padding(.top, current?.isPlayable == true ? 8 : 24)
         }
         .foregroundStyle(.white)
         .padding(.horizontal, 24)
@@ -130,6 +231,32 @@ struct MemoryViewer: View {
                 .allowsHitTesting(false)
         }
     }
+
+    /// A long caption: four lines, tap to read it all (scrolls if it's really long).
+    @ViewBuilder
+    private func longCaption(_ caption: String) -> some View {
+        if captionExpanded {
+            ScrollView {
+                Text(caption)
+                    .font(.body)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+            }
+            .frame(maxHeight: 280)
+            .onTapGesture { captionExpanded = false }
+        } else {
+            Text(caption)
+                .font(.body)
+                .lineLimit(4)
+                .onTapGesture { captionExpanded = true }
+                .accessibilityHint("Double-tap to read the whole caption")
+        }
+    }
+}
+
+/// How captions are laid out across screens.
+enum CaptionStyle {
+    /// Captions up to this many characters (and on one line) are shown as a title.
+    static let headlineLimit = 60
 }
 
 /// One page of the viewer: a photo, or a video when it's the current page.
@@ -143,6 +270,14 @@ private struct MemoryPage: View {
     private var fills: Bool { memory.isPortrait }
 
     var body: some View {
+        if memory.isNote {
+            NotePage(memory: memory)
+        } else {
+            mediaPage
+        }
+    }
+
+    private var mediaPage: some View {
         // Black background sets the page size; the picture sits on top and is cropped to it.
         Color.black
             .overlay {
@@ -174,6 +309,46 @@ private struct MemoryPage: View {
                     targetSize: CGSize(width: screen.width * scale, height: screen.height * scale),
                     contentMode: fills ? .aspectFill : .aspectFit
                 )
+            }
+    }
+}
+
+/// A text note (the words, big) or a voice note (a waveform; play it with the controls below).
+private struct NotePage: View {
+    let memory: PhotoMemory
+    @Environment(MemoryStore.self) private var store
+
+    var body: some View {
+        LinearGradient(colors: [Theme.pin.opacity(0.9), Color.indigo, Theme.night],
+                       startPoint: .topLeading, endPoint: .bottomTrailing)
+            .overlay {
+                if memory.kind == .voice {
+                    VStack(spacing: 18) {
+                        Image(systemName: "waveform")
+                            .font(.system(size: 72, weight: .semibold))
+                        if !store.caption(for: memory.id).isEmpty {
+                            Text(store.caption(for: memory.id))
+                                .font(.title3)
+                                .multilineTextAlignment(.center)
+                                .lineLimit(6)
+                                .padding(.horizontal, 32)
+                        }
+                    }
+                    .foregroundStyle(.white)
+                    .accessibilityElement(children: .combine)
+                    .accessibilityLabel("Voice note")
+                } else {
+                    ScrollView {
+                        Text(store.caption(for: memory.id).isEmpty ? "Empty note" : store.caption(for: memory.id))
+                            .font(.title2.weight(.medium))
+                            .foregroundStyle(.white)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                            .padding(.horizontal, 28)
+                            .padding(.top, 140)
+                            .padding(.bottom, 260) // room for the details at the bottom
+                    }
+                    .accessibilityIdentifier("textNote")
+                }
             }
     }
 }
@@ -215,10 +390,19 @@ final class VideoPlayback {
 
     func load(_ memory: PhotoMemory?) {
         stop()
-        guard let memory, memory.isVideo else { return }
+        guard let memory, memory.isPlayable else { return }
         duration = memory.duration
         loadTask = Task {
-            guard let item = await PhotoLoader.shared.playerItem(for: memory.id), !Task.isCancelled else { return }
+            let loaded: AVPlayerItem?
+            if memory.kind == .voice {
+                // Voice notes are files inside the app, not in Photos.
+                loaded = VoiceNoteFiles.exists(key: memory.id) ? AVPlayerItem(url: VoiceNoteFiles.url(key: memory.id)) : nil
+            } else {
+                loaded = await PhotoLoader.shared.playerItem(for: memory.id)
+            }
+            guard let item = loaded, !Task.isCancelled else { return }
+            // Play sound even when the ringer switch is on silent, like Photos does.
+            try? AVAudioSession.sharedInstance().setCategory(.playback, mode: .moviePlayback)
             let player = AVPlayer(playerItem: item)
             timeObserver = player.addPeriodicTimeObserver(
                 forInterval: CMTime(seconds: 0.25, preferredTimescale: 600), queue: .main
@@ -234,6 +418,13 @@ final class VideoPlayback {
             player.play()
             isPlaying = true
         }
+    }
+
+    /// Pauses without unloading (e.g. while you write a caption).
+    func pause() {
+        guard isPlaying, let player else { return }
+        player.pause()
+        isPlaying = false
     }
 
     func togglePlay() {
