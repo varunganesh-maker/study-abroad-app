@@ -13,9 +13,12 @@ You need a Mac with **Xcode 16 or newer** (free from the Mac App Store) and a US
 2. **Open the project.** Double-click `StudyAbroad.xcodeproj` in the unzipped folder. Xcode opens.
 3. **Sign in to Xcode with your Apple ID.** Menu bar: **Xcode → Settings… → Accounts** → **+** →
    **Apple ID**, and sign in. This is free; no paid developer account needed.
-4. **Pick your team.** In the left sidebar click the blue **StudyAbroad** project icon at the top.
-   Under **Targets** click **StudyAbroad**, then the **Signing & Capabilities** tab. Check
-   **Automatically manage signing** and set **Team** to *your name (Personal Team)*.
+4. **Save your team (once).** Build once so Xcode makes your free signing certificate: in the left
+   sidebar click the blue **StudyAbroad** icon, then **Targets → StudyAbroad → Signing & Capabilities**,
+   and set **Team** to *your name (Personal Team)*. Then open **Terminal**, `cd` into the project folder
+   and run `scripts/setup-signing.sh`. It saves your team in `Config/Local.xcconfig`, a file git ignores,
+   so pulling new code never resets it. Finally discard the change Xcode made to the project file:
+   `git checkout -- StudyAbroad.xcodeproj/project.pbxproj`. Close and reopen the project.
    - If it complains the bundle identifier is taken, change **Bundle Identifier** to something unique,
      like `com.yourname.studyabroad2`.
 5. **Plug in your iPhone** and unlock it. Tap **Trust** if it asks.

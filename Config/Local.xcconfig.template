@@ -1,0 +1,9 @@
+// Copy this file to Config/Local.xcconfig (git ignores that copy) and put your team ID below.
+// scripts/setup-signing.sh does this for you.
+//
+// Your team ID is the 10 letters/digits Apple gives your (free) Personal Team. To find it by hand:
+// Xcode → Settings… → Accounts → your Apple ID → the team's row shows it on hover, or run
+//     security find-certificate -c "Apple Development" -p | openssl x509 -noout -subject
+// and copy the value after OU=.
+
+DEVELOPMENT_TEAM = ABCDE12345
