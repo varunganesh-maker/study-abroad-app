@@ -7,9 +7,16 @@ struct MemoryViewer: View {
     let title: String
     let memories: [PhotoMemory]
     let start: PhotoMemory
-    @State private var currentID: String?
+    @State private var currentID: String
     @State private var video = VideoPlayback()
     @Environment(\.dismiss) private var dismiss
+
+    init(title: String, memories: [PhotoMemory], start: PhotoMemory) {
+        self.title = title
+        self.memories = memories
+        self.start = start
+        _currentID = State(initialValue: start.id)
+    }
 
     private var currentIndex: Int {
         memories.firstIndex { $0.id == currentID } ?? 0
@@ -20,25 +27,22 @@ struct MemoryViewer: View {
     }
 
     var body: some View {
-        ScrollView(.horizontal) {
-            LazyHStack(spacing: 0) {
-                ForEach(memories) { memory in
-                    MemoryPage(memory: memory, player: memory.id == currentID ? video.player : nil)
-                        .containerRelativeFrame([.horizontal, .vertical])
-                        .id(memory.id)
-                }
+        // Apple's built-in pager: reliable swiping, and it opens on the tapped memory.
+        // (A hand-made paging ScrollView sometimes got stuck on the first memory.)
+        TabView(selection: $currentID) {
+            ForEach(memories) { memory in
+                MemoryPage(memory: memory, player: memory.id == currentID ? video.player : nil)
+                    .tag(memory.id)
+                    .ignoresSafeArea()
             }
-            .scrollTargetLayout()
         }
-        .scrollTargetBehavior(.paging)
-        .scrollPosition(id: $currentID)
-        .scrollIndicators(.hidden)
+        .tabViewStyle(.page(indexDisplayMode: .never))
         .background(.black)
         .ignoresSafeArea()
         .overlay(alignment: .top) { topBar }
         .overlay(alignment: .bottom) { caption }
         .environment(\.colorScheme, .dark)
-        .onAppear { currentID = start.id }
+        .onAppear { video.load(current) }
         .onChange(of: currentID) { _, _ in video.load(current) }
         .onDisappear { video.stop() }
     }
@@ -151,6 +155,9 @@ private struct MemoryPage: View {
             .overlay {
                 if let player {
                     PlayerLayerView(player: player, gravity: fills ? .resizeAspectFill : .resizeAspect)
+                        .accessibilityElement()
+                        .accessibilityLabel("Video")
+                        .accessibilityIdentifier("videoPlayer")
                 }
             }
             .overlay {

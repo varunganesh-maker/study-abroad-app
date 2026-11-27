@@ -22,3 +22,14 @@ jobs:
             -sdk iphonesimulator \
             -configuration Debug \
             CODE_SIGNING_ALLOWED=NO
+      - name: Run unit tests
+        # UI tests need photos in the simulator, so CI runs the unit tests only (see docs/testing.md).
+        run: |
+          UDID=$(xcrun simctl list devices available | grep -m1 -oE "iPhone[^(]*\([0-9A-F-]{36}\)" | grep -oE "[0-9A-F-]{36}")
+          echo "Using simulator $UDID"
+          xcodebuild test \
+            -project StudyAbroad.xcodeproj \
+            -scheme StudyAbroad \
+            -destination "id=$UDID" \
+            -only-testing:StudyAbroadTests \
+            CODE_SIGNING_ALLOWED=NO
