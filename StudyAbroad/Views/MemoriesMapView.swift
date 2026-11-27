@@ -3,24 +3,37 @@ import SwiftUI
 
 /// Home screen ("Memories" in the Figma file): a night-style map with a glowing dot per city,
 /// a sparkle where you are now, and a card for the city you're in.
+///
+/// It opens on the city you're in (or the city of your newest memory when location is off).
+/// After you save a moment it flies to where that moment went and says "Saved to …".
 struct MemoriesMapView: View {
     @Environment(MemoryStore.self) private var store
     @State private var location = LocationProvider()
-    @State private var position: MapCameraPosition = .region(MapScope.australiaRegion)
-    @State private var scope: MapScope = .australia
+    @State private var position: MapCameraPosition = .region(MapScope.worldRegion(centeredOn: nil))
+    @State private var scope: MapScope = .city
+    /// The middle of the map after the last pinch or pan (picks the country name on the switch).
+    @State private var visibleCenter: CLLocationCoordinate2D?
+    /// True once you've moved the map, used the switch or search: the map stops moving on its own.
+    @State private var userTookOver = false
+    /// True once the map has centred on the city you're actually in (no more automatic moves).
+    @State private var centeredOnHere = false
     @State private var path: [CityCluster] = []
     @State private var capturing = false
     @State private var showingSettings = false
+    @State private var searching = false
+    @State private var playing: ViewerRequest?
     /// Trip names arrive with the "Start a new trip" feature; for now this is a fixed default.
     @AppStorage("tripName") private var tripName = "Study Abroad Spring 2027"
 
     var body: some View {
+        let focus = MapScope.focusCity(location: location.location, cities: store.cities)
         NavigationStack(path: $path) {
             map
-                .safeAreaInset(edge: .top, spacing: 0) { header }
-                .safeAreaInset(edge: .bottom, spacing: 0) { footer }
+                .safeAreaInset(edge: .top, spacing: 0) { header(focus: focus) }
+                .safeAreaInset(edge: .bottom, spacing: 0) { footer(focus: focus) }
                 .overlay { emptyState }
                 .background(Theme.night)
+                // The map screen is always dark, so its text is always light (see the contrast rule in Theme).
                 .environment(\.colorScheme, .dark)
                 .toolbar(.hidden, for: .navigationBar)
                 .toolbarColorScheme(.dark, for: .tabBar)
@@ -32,27 +45,79 @@ struct MemoriesMapView: View {
                     location.refresh()
                     VisitMonitor.requestNotificationPermission()
                 }
-                .sheet(isPresented: $capturing) {
-                    CaptureView()
-                        .environment(\.colorScheme, .light) // the capture screen is light, like the mockup
+                .onChange(of: focusKey(focus), initial: true) { _, _ in autoCenter(on: focus) }
+                .onChange(of: savedCity?.id) { _, _ in
+                    if let city = savedCity { fly(to: city) }
                 }
-                .sheet(isPresented: $showingSettings) {
-                    SettingsView()
-                        .environment(\.colorScheme, .light)
+                // Each sheet makes itself light (light background, dark text) with `.lightSheet()`.
+                .sheet(isPresented: $capturing) { CaptureView() }
+                .sheet(isPresented: $showingSettings) { SettingsView() }
+                .sheet(isPresented: $searching) {
+                    CitySearchView { city in
+                        fly(to: city)
+                        path.append(city)
+                    }
                 }
-                .overlay(alignment: .bottom) { noticeBanner }
+                .fullScreenCover(item: $playing) { request in
+                    MemoryViewer(title: request.title, memories: request.memories, start: request.start)
+                }
+                .overlay(alignment: .bottom) { banner }
         }
     }
 
-    /// "Added 3 memories." after adding from the camera roll; disappears on its own.
-    @ViewBuilder private var noticeBanner: some View {
-        if let notice = store.notice {
+    // MARK: Banners
+
+    /// The city the memory you just saved went into, once it's on the map.
+    private var savedCity: CityCluster? {
+        guard let id = store.justSaved, !store.isScanning else { return nil }
+        return store.city(containing: id)
+    }
+
+    /// "Saved to Sydney · View" after you save a moment, or "Added 3 memories." style notices.
+    @ViewBuilder private var banner: some View {
+        if let city = savedCity, let id = store.justSaved {
+            HStack(spacing: 12) {
+                Image(systemName: "checkmark.circle.fill")
+                    .font(.title3)
+                    .foregroundStyle(Theme.pin)
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("Saved to \(city.name)")
+                        .font(.subheadline.weight(.semibold))
+                    if let notice = store.notice {
+                        Text(notice)
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                }
+                Spacer(minLength: 8)
+                Button("View") { view(id, in: city) }
+                    .font(.subheadline.weight(.semibold))
+                    .buttonStyle(.borderedProminent)
+                    .accessibilityIdentifier("viewSavedMemory")
+            }
+            .foregroundStyle(.white)
+            .padding(.horizontal, 16)
+            .padding(.vertical, 12)
+            .background(Theme.nightCard, in: RoundedRectangle(cornerRadius: 22, style: .continuous))
+            .padding(.horizontal, 20)
+            .padding(.bottom, 130)
+            .transition(.opacity)
+            .task(id: id) {
+                try? await Task.sleep(nanoseconds: 8_000_000_000)
+                guard !Task.isCancelled else { return }
+                withAnimation {
+                    if store.justSaved == id { store.justSaved = nil }
+                    store.notice = nil
+                }
+            }
+        } else if let notice = store.notice, store.justSaved == nil {
             Text(notice)
                 .font(.subheadline)
+                .foregroundStyle(.white)
                 .multilineTextAlignment(.center)
                 .padding(.horizontal, 16)
                 .padding(.vertical, 10)
-                .background(.regularMaterial, in: Capsule())
+                .background(Theme.nightCard, in: Capsule())
                 .padding(.horizontal, 20)
                 .padding(.bottom, 130)
                 .transition(.opacity)
@@ -62,6 +127,15 @@ struct MemoriesMapView: View {
                     withAnimation { store.notice = nil }
                 }
         }
+    }
+
+    /// Opens the memory you just saved, with the rest of that city's memories to swipe through.
+    private func view(_ id: String, in city: CityCluster) {
+        let inOrder = city.days.flatMap(\.memories)
+        guard let memory = inOrder.first(where: { $0.id == id }) else { return }
+        store.justSaved = nil
+        store.notice = nil
+        playing = ViewerRequest(memories: inOrder, start: memory, title: city.name)
     }
 
     // MARK: Map
@@ -84,15 +158,84 @@ struct MemoriesMapView: View {
         }
         .mapStyle(.standard(elevation: .flat, emphasis: .muted, pointsOfInterest: .excludingAll))
         .onMapCameraChange(frequency: .onEnd) { context in
-            // "Zoom follows your map": pinching updates the Australia / World / City switch.
-            scope = MapScope.matching(context.region)
+            // "Zoom follows your map": pinching updates the City / Country / World switch.
+            if position.positionedByUser { userTookOver = true }
+            scope = MapScope.matching(span: context.region.span.latitudeDelta)
+            visibleCenter = context.region.center
+        }
+    }
+
+    // MARK: Moving the map
+
+    /// Changes whenever the city to open on changes (or location arrives with no cities yet).
+    private func focusKey(_ focus: (city: CityCluster, isHere: Bool)?) -> String {
+        if let focus { return "\(focus.city.id)|\(focus.isHere)" }
+        return location.location == nil ? "none" : "here"
+    }
+
+    /// Opens on the city you're in, or your newest memory's city, until you move the map yourself.
+    /// Once it has centred on where you actually are, it stays put.
+    private func autoCenter(on focus: (city: CityCluster, isHere: Bool)?) {
+        guard !userTookOver, !position.positionedByUser, !centeredOnHere else { return }
+        if let focus {
+            position = .region(MapScope.cityRegion(focus.city.center))
+            centeredOnHere = focus.isHere
+        } else if let here = location.location {
+            position = .region(MapScope.cityRegion(here.coordinate))
+            centeredOnHere = true
+        } else {
+            return
+        }
+        scope = .city
+    }
+
+    /// Flies to a city (after saving a moment there, or picking it in search).
+    private func fly(to city: CityCluster) {
+        userTookOver = true
+        centeredOnHere = true
+        scope = .city
+        withAnimation(.easeInOut(duration: 0.8)) {
+            position = .region(MapScope.cityRegion(city.center))
+        }
+    }
+
+    /// The country the middle option is named after: the one the map is pointing at, else yours.
+    private func countryName(focus: (city: CityCluster, isHere: Bool)?) -> String? {
+        let pointedAt = visibleCenter.flatMap { MapScope.nearestCity(to: $0, in: store.cities) }
+        return (pointedAt ?? focus?.city)?.country
+    }
+
+    private func move(to newScope: MapScope, focus: (city: CityCluster, isHere: Bool)?) {
+        let region: MKCoordinateRegion?
+        switch newScope {
+        case .city:
+            if let city = focus?.city {
+                region = MapScope.cityRegion(city.center)
+            } else if let here = location.location {
+                region = MapScope.cityRegion(here.coordinate)
+            } else {
+                region = nil
+            }
+        case .country:
+            region = countryName(focus: focus).flatMap { MapScope.countryRegion($0, cities: store.cities) }
+        case .world:
+            let longitude = location.location?.coordinate.longitude ?? focus?.city.center.longitude
+            region = MapScope.worldRegion(centeredOn: longitude)
+        }
+        // Nowhere to go (no memories and no location yet): leave the switch where it was.
+        guard let region else { return }
+        userTookOver = true
+        scope = newScope
+        withAnimation(.easeInOut(duration: 0.6)) {
+            position = .region(region)
         }
     }
 
     // MARK: Header
 
-    private var header: some View {
-        VStack(alignment: .leading, spacing: 6) {
+    private func header(focus: (city: CityCluster, isHere: Bool)?) -> some View {
+        let country = countryName(focus: focus)
+        return VStack(alignment: .leading, spacing: 6) {
             Text(tripName)
                 .font(.footnote)
                 .foregroundStyle(.secondary)
@@ -100,6 +243,14 @@ struct MemoriesMapView: View {
                 Text("Memories")
                     .font(.largeTitle.bold())
                 Spacer()
+                Button { searching = true } label: {
+                    Image(systemName: "magnifyingglass")
+                        .font(.title3.weight(.semibold))
+                        .frame(width: 44, height: 44)
+                        .background(Theme.nightCard, in: Circle())
+                }
+                .accessibilityLabel("Find a city")
+                .accessibilityIdentifier("findCityButton")
                 Button { showingSettings = true } label: {
                     Image(systemName: "slider.horizontal.3")
                         .font(.title3.weight(.semibold))
@@ -117,8 +268,8 @@ struct MemoriesMapView: View {
                 .accessibilityIdentifier("addMemoryButton")
             }
             .foregroundStyle(.white)
-            Picker("Map zoom", selection: Binding(get: { scope }, set: { move(to: $0) })) {
-                ForEach(MapScope.allCases) { Text($0.title).tag($0) }
+            Picker("Map zoom", selection: Binding(get: { scope }, set: { move(to: $0, focus: focus) })) {
+                ForEach(MapScope.allCases) { Text($0.title(country: country)).tag($0) }
             }
             .pickerStyle(.segmented)
             .padding(.top, 12)
@@ -135,48 +286,19 @@ struct MemoriesMapView: View {
         )
     }
 
-    private func move(to newScope: MapScope) {
-        scope = newScope
-        withAnimation(.easeInOut(duration: 0.6)) {
-            switch newScope {
-            case .australia:
-                position = .region(MapScope.australiaRegion)
-            case .world:
-                position = .region(MapScope.worldRegion)
-            case .city:
-                if let city = focusCity?.city {
-                    position = .region(MKCoordinateRegion(center: city.center,
-                                                          span: MKCoordinateSpan(latitudeDelta: 0.5, longitudeDelta: 0.5)))
-                } else if let here = location.location {
-                    position = .region(MKCoordinateRegion(center: here.coordinate,
-                                                          span: MKCoordinateSpan(latitudeDelta: 0.5, longitudeDelta: 0.5)))
-                }
-            }
-        }
-    }
-
     // MARK: Footer
 
-    /// The city you're in (within ~60 km), or else the city with your most recent memory.
-    private var focusCity: (city: CityCluster, isHere: Bool)? {
-        if let here = location.location {
-            let nearest = store.cities.min { distance($0, here) < distance($1, here) }
-            if let nearest, distance(nearest, here) < 60_000 { return (nearest, true) }
-        }
-        let latest = store.cities.max { ($0.cover?.takenAt ?? .distantPast) < ($1.cover?.takenAt ?? .distantPast) }
-        return latest.map { ($0, false) }
-    }
-
-    private func distance(_ city: CityCluster, _ location: CLLocation) -> CLLocationDistance {
-        CLLocation(latitude: city.center.latitude, longitude: city.center.longitude).distance(from: location)
-    }
-
-    @ViewBuilder private var footer: some View {
-        if let focus = focusCity {
-            VStack(spacing: 14) {
+    private func footer(focus: (city: CityCluster, isHere: Bool)?) -> some View {
+        VStack(alignment: .leading, spacing: 12) {
+            if !store.recentlyAdded.isEmpty {
+                recentlyAddedRow
+            } else if focus != nil {
                 Text("Pinch to explore · zoom follows your map")
                     .font(.footnote)
                     .foregroundStyle(.secondary)
+                    .frame(maxWidth: .infinity)
+            }
+            if let focus {
                 Button { path.append(focus.city) } label: {
                     HStack(spacing: 14) {
                         Group {
@@ -191,7 +313,7 @@ struct MemoriesMapView: View {
                         VStack(alignment: .leading, spacing: 6) {
                             Text(focus.isHere ? "You’re in \(focus.city.name)" : "Latest: \(focus.city.name)")
                                 .font(.headline)
-                                .foregroundStyle(.primary)
+                                .foregroundStyle(.white)
                             Text("\(focus.city.statsText)    ›")
                                 .font(.subheadline)
                                 .foregroundStyle(.secondary)
@@ -203,9 +325,34 @@ struct MemoriesMapView: View {
                 }
                 .buttonStyle(.plain)
             }
-            .padding(.horizontal, 20)
-            .padding(.bottom, 12)
         }
+        .padding(.horizontal, 20)
+        .padding(.bottom, 12)
+    }
+
+    /// Small pictures of what you added yourself this week. Tap one to open it.
+    private var recentlyAddedRow: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text("Recently added")
+                .font(.footnote.weight(.semibold))
+                .foregroundStyle(.secondary)
+            ScrollView(.horizontal) {
+                HStack(spacing: 8) {
+                    ForEach(store.recentlyAdded) { memory in
+                        Button {
+                            playing = ViewerRequest(memories: store.recentlyAdded, start: memory, title: "Recently added")
+                        } label: {
+                            AssetThumbnail(memory: memory, side: 52)
+                                .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+                        }
+                        .buttonStyle(.plain)
+                        .accessibilityLabel(memory.kindName)
+                    }
+                }
+            }
+            .scrollIndicators(.hidden)
+        }
+        .accessibilityIdentifier("recentlyAdded")
     }
 
     @ViewBuilder private var emptyState: some View {
@@ -218,37 +365,6 @@ struct MemoriesMapView: View {
             .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 20))
             .padding(40)
         }
-    }
-}
-
-/// The Australia / World / City switch above the map.
-enum MapScope: String, CaseIterable, Identifiable {
-    case australia, world, city
-
-    var id: String { rawValue }
-    var title: String {
-        switch self {
-        case .australia: "Australia"
-        case .world: "World"
-        case .city: "City"
-        }
-    }
-
-    static let australiaRegion = MKCoordinateRegion(
-        center: CLLocationCoordinate2D(latitude: -27.5, longitude: 134),
-        span: MKCoordinateSpan(latitudeDelta: 40, longitudeDelta: 42)
-    )
-    static let worldRegion = MKCoordinateRegion(
-        center: CLLocationCoordinate2D(latitude: 10, longitude: 140),
-        span: MKCoordinateSpan(latitudeDelta: 150, longitudeDelta: 300)
-    )
-
-    /// Which option best describes what the map is showing after you pinch or pan.
-    static func matching(_ region: MKCoordinateRegion) -> MapScope {
-        let span = region.span.latitudeDelta
-        if span < 4 { return .city }
-        if span < 70 { return .australia }
-        return .world
     }
 }
 

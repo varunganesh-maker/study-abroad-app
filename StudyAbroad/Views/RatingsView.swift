@@ -48,10 +48,12 @@ struct RatingsView: View {
                             .foregroundStyle(.secondary)
                     }
                     ForEach(rated) { visit in
-                        Button { reviewVisit(visit) } label: {
-                            VisitRow(visit: visit, trailing: visit.rating.map { $0.formatted(.number.precision(.fractionLength(1))) })
+                        NavigationLink {
+                            PlaceView(visit: visit)
+                        } label: {
+                            VisitRow(visit: visit, trailing: visit.rating.map { $0.formatted(.number.precision(.fractionLength(1))) },
+                                     showsChevron: false)
                         }
-                        .buttonStyle(.plain)
                     }
                     .onDelete(perform: delete)
                 } header: {
@@ -139,6 +141,8 @@ struct RatingsView: View {
 private struct VisitRow: View {
     let visit: Visit
     let trailing: String?
+    /// Off inside a NavigationLink, which draws its own arrow.
+    var showsChevron = true
 
     var body: some View {
         HStack(spacing: 12) {
@@ -163,9 +167,11 @@ private struct VisitRow: View {
                     .font(.body.weight(.semibold).monospacedDigit())
                     .foregroundStyle(.tint)
             }
-            Image(systemName: "chevron.right")
-                .font(.footnote.weight(.semibold))
-                .foregroundStyle(.tertiary)
+            if showsChevron {
+                Image(systemName: "chevron.right")
+                    .font(.footnote.weight(.semibold))
+                    .foregroundStyle(.tertiary)
+            }
         }
         .contentShape(Rectangle())
         .padding(.vertical, 4)

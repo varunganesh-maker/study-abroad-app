@@ -16,6 +16,8 @@ struct CityCluster: Identifiable, Hashable {
     var photoCount: Int { memories.filter(\.isPhoto).count }
     var videoCount: Int { memories.filter(\.isVideo).count }
     var noteCount: Int { memories.filter(\.isNote).count }
+    /// When the newest memory here was taken (notes count too).
+    var newestDate: Date { memories.compactMap(\.takenAt).max() ?? .distantPast }
 
     var subtitle: String {
         var parts: [String] = []

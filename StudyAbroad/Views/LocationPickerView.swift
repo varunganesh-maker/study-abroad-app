@@ -16,7 +16,7 @@ struct LocationPickerView: View {
             _position = State(initialValue: .region(MKCoordinateRegion(
                 center: start, span: MKCoordinateSpan(latitudeDelta: 0.01, longitudeDelta: 0.01))))
         } else {
-            _position = State(initialValue: .region(MapScope.australiaRegion))
+            _position = State(initialValue: .region(MapScope.worldRegion(centeredOn: nil)))
         }
         _center = State(initialValue: start)
     }

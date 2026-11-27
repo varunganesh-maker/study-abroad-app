@@ -166,4 +166,56 @@ struct MemoryLibraryTests {
         #expect(added == 1_200)
         #expect(library.visible(scanned: scanned).memories.count == 1_200)
     }
+
+    // MARK: Recently added
+
+    @Test func recentlyAddedListsHandAddedNewestFirst() async {
+        let library = makeLibrary()
+        library.addAsset("picked", kind: .photo, source: .picker, coordinate: nil)
+        library.addAsset("shot", kind: .photo, source: .camera, coordinate: nil)
+        let note = library.addNote(kind: .text, text: "hi", coordinate: sydney, takenAt: noon)
+        await library.autoAdd([photo("auto")], rule: AutoAddRule(mode: .all))
+        library.addAsset("hidden", kind: .photo, source: .picker, coordinate: nil)
+        library.remove("hidden")
+        let now = Date.now
+        library.entry(for: "picked")?.addedAt = now.addingTimeInterval(-300)
+        library.entry(for: "shot")?.addedAt = now.addingTimeInterval(-200)
+        library.entry(for: note)?.addedAt = now.addingTimeInterval(-100)
+
+        let keys = library.recentlyAddedKeys(since: now.addingTimeInterval(-3_600))
+
+        #expect(keys == [note, "shot", "picked"])
+    }
+
+    @Test func recentlyAddedIgnoresOldEntries() {
+        let library = makeLibrary()
+        library.addAsset("old", kind: .photo, source: .picker, coordinate: nil)
+        library.entry(for: "old")?.addedAt = Date.now.addingTimeInterval(-10 * 86_400)
+
+        #expect(library.recentlyAddedKeys(since: Date.now.addingTimeInterval(-7 * 86_400)).isEmpty)
+    }
+
+    @Test func addingAnAutoAddedPhotoByHandMakesItRecent() async {
+        let library = makeLibrary()
+        await library.autoAdd([photo("a")], rule: AutoAddRule(mode: .all))
+        #expect(library.recentlyAddedKeys(since: .distantPast).isEmpty)
+
+        library.addAsset("a", kind: .photo, source: .picker, coordinate: nil)
+
+        #expect(library.entry(for: "a")?.source == .picker)
+        #expect(library.recentlyAddedKeys(since: .distantPast) == ["a"])
+        #expect(library.count == 1)
+    }
+
+    @Test func storeRecentKeepsKeyOrderSkipsMissingAndCapsAtTwelve() {
+        let memories = (0..<20).map { photo("p\($0)") }
+        let keys = ["p5", "missing", "p1", "p3"]
+
+        let result = MemoryStore.recent(keys: keys, in: memories)
+
+        #expect(result.map(\.id) == ["p5", "p1", "p3"])
+        #expect(MemoryStore.recent(keys: [], in: memories).isEmpty)
+        #expect(MemoryStore.recent(keys: memories.map(\.id), in: memories).count == 12)
+        #expect(MemoryStore.recent(keys: memories.map(\.id), in: memories).first?.id == "p0")
+    }
 }

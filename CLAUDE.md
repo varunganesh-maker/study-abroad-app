@@ -52,11 +52,17 @@ StudyAbroad/
     Backup                  backup file (captions, notes + audio, removed, ratings, auto-add) export/restore
     PhotoLoader             loads thumbnails / full images / videos on demand
     LocationProvider        current location for the map sparkle + "You're in…" card; asks for Always
-    VisitMonitor            CLVisit monitoring -> pending Visit + local notification (created at app launch)
+    VisitMonitor            CLVisit monitoring + backup check -> pending Visit + local notification (created at app launch)
+    BackupVisitDetector     backup visit check from significant location changes; VisitDedupe stops doubles
+    CitySearch              "Find a city" / Cities tab search (city, country, caption words; on-device only)
+    PlaceDetails            which visits + memories belong to one place (for the place page)
     PlaceNamer              coordinate -> nearest point of interest + suburb + city
   Views/
-    Theme                   colours from the Figma mockups
-    MemoriesMapView         night-style map home screen
+    Theme                   colours from the Figma mockups, the contrast rule, `.lightSheet()`
+    MemoriesMapView         night-style map home screen: City/Country/World switch, search, "Saved to …",
+                            "Recently added" row
+    MapScope                map regions + which city to open on (pure, unit-tested)
+    PlaceView               a place page: rating, visits + recaps, memories there, Open in Maps
     CityStoryView           a city's page: latest-day card + "Your days" row
     AllMemoriesView         every memory in a city, by day or by type
     MemoryViewer            full-screen story viewer (TabView page style) with custom video controls
@@ -65,7 +71,8 @@ StudyAbroad/
     CaptionEditorView       caption any memory, any length (••• or "Add a caption" in the viewer)
     SettingsView            auto-add setting, removed memories, backup save/restore (slider button on the map)
     RatingsView             "Your ratings" tab: visits waiting for a rating (inbox), rated places, ＋ = "I was here"
-    CameraPicker, LocationPickerView, CityListView, PermissionView, AssetThumbnail (also draws note cards)
+    CityListView            Cities tab (searchable) + CityRow + CitySearchView (magnifier on the map)
+    CameraPicker, LocationPickerView, PermissionView, AssetThumbnail (also draws note cards)
 StudyAbroadTests/           unit tests (Swift Testing), no photos needed; CI runs these
 StudyAbroadUITests/         UI tests (XCTest) driving the app; need photos in the simulator
 scripts/make-test-media.swift  fake geotagged photos/videos for the simulator
@@ -90,6 +97,15 @@ Screens follow Varun's Figma mockups: https://www.figma.com/design/XiGd2aOYGruzV
 (10 screens; Memories map, Sydney stories, All memories, Memory viewer, You've been here and Capture a
 moment are built). Use the Figma
 connector to read a frame before changing a screen. Accent colour is indigo (AccentColor asset).
+
+**Contrast rule (Varun, Nov 27, permanent):** a light background always gets dark text, and a dark
+background always gets light text. Check every screen and sheet, in both the phone's light and dark mode.
+- The map and the memory viewer are always dark (white text). Sheets (New moment, Settings, captions,
+  Find a city) are always light: put `.lightSheet()` on the sheet's own view.
+- Never use `.environment(\.colorScheme, .light)` by itself on a sheet: it flips the text colour but not
+  the sheet's background, which is how "New moment" ended up black text on black. `ContrastRuleTests`
+  fails the build if it appears outside `Theme.swift`.
+- Text on a custom colour (Theme.night, nightCard) is `.white`, with contrast 4.5:1 or better.
 
 ## How city grouping works (phase 1)
 
@@ -155,7 +171,16 @@ section), AI trip recap, Beli screenshot sync, camcorder import, sharing links. 
 once Varun buys the dev account.
 
 Already built: memories map, city grouping, Figma-styled city/all-memories/viewer screens, CLVisit
-detection with "You've been here" sheet (0-10 rating + recap in SwiftData), DEBUG "Test visit" button.
+detection with "You've been here" sheet (0-10 rating + recap in SwiftData), DEBUG "Test visit" button,
+captions + capture + backup file (PR 8), place page, backup visit detection, city search (PR 11).
+
+## Backup visit detection
+
+With location set to Always, `VisitMonitor` also runs significant-location-change monitoring (no
+background mode or capability needed, so free signing works). `BackupVisitDetector` keeps ONE point
+(where the phone last sat still) in UserDefaults, overwritten each time and wiped when permission drops
+below Always. Staying 20 min to 8 h then moving 400 m+ makes a `Visit` with `source = .backup`. A later
+real `CLVisit` for the same time replaces a pending backup visit (never a rated or dismissed one).
 
 ## Data model (planned)
 

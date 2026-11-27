@@ -129,7 +129,9 @@ struct CaptureView: View {
             .sheet(isPresented: $choosingPlace) {
                 LocationPickerView(start: coordinate) { picked in
                     chosenCoordinate = picked
+                    errorMessage = nil
                 }
+                .lightSheet()
             }
             .onChange(of: mode) { _, newMode in
                 errorMessage = nil
@@ -147,6 +149,7 @@ struct CaptureView: View {
             .task { if attachedTo == nil { location.refresh() } }
             .task(id: coordinateKey) { await lookUpPlaceName() }
         }
+        .lightSheet()
     }
 
     // MARK: Note: words + voice
@@ -502,6 +505,11 @@ struct CaptureView: View {
             if keepAudio {
                 store.addNote(kind: .voice, text: text, coordinate: coordinate, takenAt: takenAt,
                               duration: recorder.elapsed, key: recorder.key)
+            } else if !hasWords {
+                // The recording file is missing and there are no words: saving now would make an
+                // empty note and the voice note would be gone. Say so instead.
+                errorMessage = "The recording couldn't be saved. Tap the mic to record again, or type your note."
+                return
             } else {
                 recorder.discard() // "Text" only: the words are kept, the audio isn't
                 store.addNote(kind: .text, text: text, coordinate: coordinate, takenAt: takenAt)
@@ -510,6 +518,12 @@ struct CaptureView: View {
 
         case .photo, .video:
             guard let capture else { return }
+            guard coordinate != nil else {
+                // With no place it would land in your camera roll but never on the map.
+                errorMessage = "Where did this happen? Pick the spot on the map, then tap Save."
+                choosingPlace = true
+                return
+            }
             // Only a real place goes into the photo file itself (it's permanent in your camera roll);
             // the "near your latest memory" guess is only used for the app's map.
             let stamped = chosenCoordinate.map { CLLocation(latitude: $0.latitude, longitude: $0.longitude) } ?? location.location
