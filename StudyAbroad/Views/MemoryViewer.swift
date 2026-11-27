@@ -10,6 +10,7 @@ struct MemoryViewer: View {
     @State private var currentID: String
     @State private var video = VideoPlayback()
     @State private var editingCaption: PhotoMemory?
+    @State private var addingNoteFor: PhotoMemory?
     @State private var confirmingRemove = false
     @State private var captionExpanded = false
     @Environment(\.dismiss) private var dismiss
@@ -54,6 +55,9 @@ struct MemoryViewer: View {
         .onDisappear { video.stop() }
         .sheet(item: $editingCaption) { memory in
             CaptionEditorView(memory: memory)
+        }
+        .sheet(item: $addingNoteFor, onDismiss: { video.load(current) }) { memory in
+            CaptureView(attachedTo: memory)
         }
         .confirmationDialog(removeTitle, isPresented: $confirmingRemove, titleVisibility: .visible) {
             Button(current?.isNote == true ? "Delete note" : "Remove from app", role: .destructive) {
@@ -114,7 +118,7 @@ struct MemoryViewer: View {
         .padding(.top, 10)
     }
 
-    /// "•••": caption, remove.
+    /// "•••": caption, add a note next to this memory, remove.
     private var moreMenu: some View {
         Menu {
             if let current {
@@ -127,6 +131,12 @@ struct MemoryViewer: View {
                     } else {
                         Label(currentCaption.isEmpty ? "Add caption" : "Edit caption", systemImage: "text.bubble")
                     }
+                }
+                Button {
+                    video.stop()
+                    addingNoteFor = current
+                } label: {
+                    Label("Add a note here", systemImage: "square.and.pencil")
                 }
                 Button(role: .destructive) {
                     confirmingRemove = true

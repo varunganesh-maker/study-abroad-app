@@ -9,6 +9,7 @@ struct MemoriesMapView: View {
     @State private var position: MapCameraPosition = .region(MapScope.australiaRegion)
     @State private var scope: MapScope = .australia
     @State private var path: [CityCluster] = []
+    @State private var capturing = false
     @State private var showingSettings = false
     /// Trip names arrive with the "Start a new trip" feature; for now this is a fixed default.
     @AppStorage("tripName") private var tripName = "Study Abroad Spring 2027"
@@ -30,6 +31,10 @@ struct MemoriesMapView: View {
                 .task {
                     location.refresh()
                     VisitMonitor.requestNotificationPermission()
+                }
+                .sheet(isPresented: $capturing) {
+                    CaptureView()
+                        .environment(\.colorScheme, .light) // the capture screen is light, like the mockup
                 }
                 .sheet(isPresented: $showingSettings) {
                     SettingsView()
@@ -102,6 +107,14 @@ struct MemoriesMapView: View {
                         .background(Theme.nightCard, in: Circle())
                 }
                 .accessibilityLabel("Settings")
+                Button { capturing = true } label: {
+                    Image(systemName: "plus")
+                        .font(.title2.weight(.semibold))
+                        .frame(width: 48, height: 48)
+                        .background(Theme.nightCard, in: Circle())
+                }
+                .accessibilityLabel("Add a memory")
+                .accessibilityIdentifier("addMemoryButton")
             }
             .foregroundStyle(.white)
             Picker("Map zoom", selection: Binding(get: { scope }, set: { move(to: $0) })) {
@@ -200,7 +213,7 @@ struct MemoriesMapView: View {
             ContentUnavailableView(
                 "No memories yet",
                 systemImage: "location.slash",
-                description: Text("Photos taken with Location Services on for the Camera show up here.")
+                description: Text("Photos taken with Location Services on for the Camera show up here. Tap ＋ to add photos, videos or notes yourself.")
             )
             .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 20))
             .padding(40)

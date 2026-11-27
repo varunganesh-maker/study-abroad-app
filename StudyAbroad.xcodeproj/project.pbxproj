@@ -339,7 +339,11 @@
 				INFOPLIST_KEY_CFBundleDisplayName = "Study Abroad";
 				INFOPLIST_KEY_NSLocationAlwaysAndWhenInUseUsageDescription = "Study Abroad notices when you spend time somewhere (a café, a beach, a museum) so it can ask how it was. Your location stays on your phone.";
 				INFOPLIST_KEY_NSLocationWhenInUseUsageDescription = "Study Abroad uses your location to show where you are on your memories map and which city you are in. It stays on your phone.";
+				INFOPLIST_KEY_NSCameraUsageDescription = "Study Abroad uses the camera when you snap a photo or video for a new moment. It is saved to your camera roll.";
+				INFOPLIST_KEY_NSMicrophoneUsageDescription = "Study Abroad uses the microphone to record voice notes and the sound in videos you take. Recordings stay on your phone.";
+				INFOPLIST_KEY_NSPhotoLibraryAddUsageDescription = "Study Abroad saves photos and videos you take in the app to your camera roll.";
 				INFOPLIST_KEY_NSPhotoLibraryUsageDescription = "Study Abroad reads where your photos and videos were taken so it can put them on your memories map. Nothing leaves your phone.";
+				INFOPLIST_KEY_NSSpeechRecognitionUsageDescription = "Study Abroad turns your voice notes into text on your phone. Your voice is never uploaded.";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
@@ -372,7 +376,11 @@
 				INFOPLIST_KEY_CFBundleDisplayName = "Study Abroad";
 				INFOPLIST_KEY_NSLocationAlwaysAndWhenInUseUsageDescription = "Study Abroad notices when you spend time somewhere (a café, a beach, a museum) so it can ask how it was. Your location stays on your phone.";
 				INFOPLIST_KEY_NSLocationWhenInUseUsageDescription = "Study Abroad uses your location to show where you are on your memories map and which city you are in. It stays on your phone.";
+				INFOPLIST_KEY_NSCameraUsageDescription = "Study Abroad uses the camera when you snap a photo or video for a new moment. It is saved to your camera roll.";
+				INFOPLIST_KEY_NSMicrophoneUsageDescription = "Study Abroad uses the microphone to record voice notes and the sound in videos you take. Recordings stay on your phone.";
+				INFOPLIST_KEY_NSPhotoLibraryAddUsageDescription = "Study Abroad saves photos and videos you take in the app to your camera roll.";
 				INFOPLIST_KEY_NSPhotoLibraryUsageDescription = "Study Abroad reads where your photos and videos were taken so it can put them on your memories map. Nothing leaves your phone.";
+				INFOPLIST_KEY_NSSpeechRecognitionUsageDescription = "Study Abroad turns your voice notes into text on your phone. Your voice is never uploaded.";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
