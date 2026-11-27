@@ -95,10 +95,14 @@ connector to read a frame before changing a screen. Accent colour is indigo (Acc
   and a setting "auto-add new photos: for a trip's dates / from now on / off". Apps can't hook into
   Apple's Camera app; auto-add is the substitute.
 - Budget is **~$0/month**. Free tiers only (CloudKit in the user's own iCloud, Apple geocoding,
-  Google Places free allowance behind a Cloudflare Worker). Anything paid (e.g. Claude Haiku for
+  Google Places free allowance behind a Cloudflare Worker; CloudKit later, with a paid account). Anything paid (e.g. Claude Haiku for
   "why you'll like it", ~$1-3/mo) needs Varun's yes first.
 - Music: **Spotify**, not Apple Music. Spotify's 2026 dev-mode rules cap API apps at 5 Premium users,
   so use Spotify **embed players** from a pasted link, not the Spotify API/SDK.
+- **No paid Apple Developer account for now** (Varun, Nov 27): build everything on free signing.
+  No CloudKit (use a backup file exported to Files/iCloud Drive instead), no widget (needs App Groups),
+  no TestFlight. Don't add capabilities free signing can't provision. Builds expire after 7 days, so
+  in Australia Varun needs the Mac to reinstall, or buys the account before leaving.
 - Phone: plan for iPhone 15 (no Camera Control, no Apple Intelligence on the base model).
 - Name and branding are deferred; keep the Figma style.
 
@@ -106,19 +110,20 @@ connector to read a frame before changing a screen. Accent colour is indigo (Acc
 
 Each week ends with a build Varun installs and uses.
 1. **Nov 30-Dec 6:** fix "View all" (swipe through every memory) and videos not showing; save
-   memories in SwiftData; captions on photos and videos. Varun buys the $99 dev account.
-2. **Dec 7-13:** camera roll picker, auto-add setting, in-app camera, voice + text notes, CloudKit backup.
+   memories in SwiftData; captions on photos and videos.
+2. **Dec 7-13:** camera roll picker, auto-add setting, in-app camera, voice + text notes, backup file export/restore.
 3. **Dec 14-20:** visit inbox, place page, manual "I was here", backup visit detection
-   (significant-location-change; iOS 26 `didVisit` regressions reported), widget.
+   (significant-location-change; iOS 26 `didVisit` regressions reported).
 4. **Dec 21-27:** recommendations (food, sights, nightlife, day trips, hidden gems; ranked by Varun's
    ratings; want-to-go list), trips with legs and auto-sorting.
-5. **Dec 28-Jan 2:** trip page + highlights, bug sweep, full council version check, TestFlight build.
+5. **Dec 28-Jan 2:** trip page + highlights, bug sweep, full council version check, fresh Xcode install before the flight.
 
 **Must-ship line.** Stretch: scrapbook v1 (auto-draft from dates, 3-4 templates, reorder).
-If a week slips, cut in this order: widget, itinerary drag-and-drop, hidden gems. Never cut captions,
+If a week slips, cut in this order: itinerary drag-and-drop, hidden gems. Never cut captions,
 capture, visits or basic recommendations.
 From Sydney (Jan-Feb 2027): full scrapbook (free layout, stickers, ticket stubs, Spotify per page or
-section), AI trip recap, Beli screenshot sync, camcorder import, sharing links.
+section), AI trip recap, Beli screenshot sync, camcorder import, sharing links. Widget + CloudKit sync
+once Varun buys the dev account.
 
 Already built: memories map, city grouping, Figma-styled city/all-memories/viewer screens, CLVisit
 detection with "You've been here" sheet (0-10 rating + recap in SwiftData), DEBUG "Test visit" button.
