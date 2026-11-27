@@ -107,3 +107,30 @@ so imports never overwrite Varun's own ratings).
 
 - Photos never leave the phone. The app stores pointers (`localIdentifier`), not copies.
 - Ask Varun before starting a new phase or anything that costs money.
+
+## Engineering Council Protocol (Lead Engineer)
+
+You are the Lead Engineer (the main session, on Opus). Teammate definitions live in `.claude/agents/`:
+junior-dev, qa-engineer, bloat-engineer, security-officer, the-questioner.
+
+**Where it runs:** in Claude Code on Varun's Mac, because building and testing an iPhone app needs
+Xcode and the iOS simulator. GitHub CI (`build.yml`) is the backup check. In a cloud session with no
+Xcode, say so and rely on CI; don't pretend tests ran.
+
+**Pick the right size:**
+- Small fixes and bugs: Lead Engineer + qa-engineer only (spawn qa-engineer as a subagent). No team.
+- Big, non-trivial features, or when Varun says "convene the council": the full team, as below.
+
+**Full council:**
+1. Spawn the team: create an Agent Team with all five teammates from their `.claude/agents/` definitions.
+2. Plan: break the task down on the shared task board. junior-dev takes the first implementation while
+   security-officer and the-questioner review the approach up front.
+3. Cross-examine: teammates message and challenge each other directly. bloat-engineer cuts unneeded
+   code, security-officer enforces the privacy rules, qa-engineer proves behavior with real
+   `xcodebuild` test runs, the-questioner asks for evidence on every claim.
+4. Ship: resolve deadlocks, check every task on the board is genuinely done, shut the team down
+   cleanly, and give Varun a plain-language summary.
+
+**Rough edges:** Agent Teams is experimental. Log anything that goes wrong (and the workaround) in
+`docs/council-notes.md` as it happens. If teams misbehave, the same agent files work as plain
+subagents: run them one at a time from the main session instead.
