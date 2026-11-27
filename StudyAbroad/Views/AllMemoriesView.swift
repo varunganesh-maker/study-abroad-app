@@ -4,8 +4,12 @@ import SwiftUI
 /// sorted by day or by type. Tap one to view it full screen.
 struct AllMemoriesView: View {
     let city: CityCluster
+    /// The city as it is now (it changes when you add, caption or remove memories),
+    /// falling back to the one you tapped if it has just disappeared.
+    private var current: CityCluster { store.cities.first { $0.id == city.id } ?? city }
     @State private var grouping: Grouping = .day
     @State private var playing: ViewerRequest?
+    @Environment(MemoryStore.self) private var store
 
     enum Grouping: String, CaseIterable, Identifiable {
         case day = "Day"
@@ -23,16 +27,18 @@ struct AllMemoriesView: View {
     private var sections: [MemorySection] {
         switch grouping {
         case .day:
-            return city.days.map { day in
+            return current.days.map { day in
                 MemorySection(title: day.longTitle, subtitle: day.momentsText, memories: day.memories)
             }
         case .type:
-            let byOldest = city.memories.reversed()
-            let photos = byOldest.filter { !$0.isVideo }
-            let videos = byOldest.filter { $0.isVideo }
+            let byOldest = current.memories.reversed()
+            let photos = byOldest.filter(\.isPhoto)
+            let videos = byOldest.filter(\.isVideo)
+            let notes = byOldest.filter(\.isNote)
             return [
                 MemorySection(title: "Photos", subtitle: "\(photos.count) photo\(photos.count == 1 ? "" : "s")", memories: photos),
                 MemorySection(title: "Videos", subtitle: "\(videos.count) video\(videos.count == 1 ? "" : "s")", memories: videos),
+                MemorySection(title: "Notes", subtitle: "\(notes.count) note\(notes.count == 1 ? "" : "s")", memories: notes),
             ].filter { !$0.memories.isEmpty }
         }
     }
@@ -44,7 +50,7 @@ struct AllMemoriesView: View {
         let everything = shown.flatMap(\.memories)
         ScrollView {
             LazyVStack(alignment: .leading, spacing: 0) {
-                Text("\(city.memories.count) moments worth keeping")
+                Text("\(current.memories.count) moments worth keeping")
                     .font(.subheadline)
                     .foregroundStyle(.secondary)
                     .padding(.horizontal, 2)
@@ -80,9 +86,19 @@ struct AllMemoriesView: View {
                                         }
                                     }
                                     .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
+                                    .overlay(alignment: .topTrailing) {
+                                        // A small speech bubble on memories that have a caption.
+                                        if !memory.isNote && !store.caption(for: memory.id).isEmpty {
+                                            Image(systemName: "text.bubble.fill")
+                                                .font(.caption)
+                                                .foregroundStyle(.white)
+                                                .shadow(color: .black.opacity(0.6), radius: 2)
+                                                .padding(8)
+                                        }
+                                    }
                             }
                             .buttonStyle(.plain)
-                            .accessibilityLabel(memory.isVideo ? "Video, \(memory.durationText)" : "Photo")
+                            .accessibilityLabel(cellLabel(for: memory))
                             .accessibilityIdentifier("memoryCell")
                         }
                     }
@@ -94,7 +110,15 @@ struct AllMemoriesView: View {
         .navigationTitle("All memories")
         .navigationBarTitleDisplayMode(.large)
         .fullScreenCover(item: $playing) { request in
-            MemoryViewer(title: city.name, memories: request.memories, start: request.start)
+            MemoryViewer(title: current.name, memories: request.memories, start: request.start)
         }
+    }
+
+    /// "Video, 0:24", "Photo, captioned: Bondi at dusk", "Note"…
+    private func cellLabel(for memory: PhotoMemory) -> String {
+        var label = memory.isPlayable ? "\(memory.kindName), \(memory.durationText)" : memory.kindName
+        let caption = store.caption(for: memory.id)
+        if !caption.isEmpty { label += ", captioned: \(caption.prefix(80))" }
+        return label
     }
 }

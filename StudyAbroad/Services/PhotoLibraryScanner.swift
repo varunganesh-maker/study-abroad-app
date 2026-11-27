@@ -44,6 +44,65 @@ enum PhotoLibraryScanner {
         }.value
     }
 
+    /// Photos and videos you added by hand that have no GPS of their own: looked up by id and put
+    /// at the location the app saved for them. Items deleted from the camera roll are skipped.
+    static func fetchMemories(placedAt placements: [String: CLLocationCoordinate2D]) async -> [PhotoMemory] {
+        guard !placements.isEmpty else { return [] }
+        return await Task.detached(priority: .userInitiated) {
+            let assets = PHAsset.fetchAssets(withLocalIdentifiers: Array(placements.keys), options: nil)
+            var result: [PhotoMemory] = []
+            assets.enumerateObjects { asset, _, _ in
+                guard let coordinate = placements[asset.localIdentifier] else { return }
+                result.append(memory(for: asset, at: coordinate))
+            }
+            return result
+        }.value
+    }
+
+    /// What the app needs to know about one camera roll item before adding it.
+    struct AssetInfo {
+        let id: String
+        let kind: PhotoMemory.Kind
+        let takenAt: Date?
+        /// Nil when the item has no GPS.
+        let coordinate: CLLocationCoordinate2D?
+        var duration: Double = 0
+
+        /// Enough of a memory to draw a thumbnail before it's on the map.
+        var preview: PhotoMemory {
+            PhotoMemory(id: id, coordinate: coordinate ?? CLLocationCoordinate2D(), takenAt: takenAt,
+                        kind: kind, duration: duration)
+        }
+    }
+
+    static func info(for ids: [String]) -> [AssetInfo] {
+        guard !ids.isEmpty else { return [] }
+        let assets = PHAsset.fetchAssets(withLocalIdentifiers: ids, options: nil)
+        var byID: [String: AssetInfo] = [:]
+        assets.enumerateObjects { asset, _, _ in
+            byID[asset.localIdentifier] = AssetInfo(
+                id: asset.localIdentifier,
+                kind: asset.mediaType == .video ? .video : .photo,
+                takenAt: asset.creationDate,
+                coordinate: validCoordinate(asset.location),
+                duration: asset.duration
+            )
+        }
+        return ids.compactMap { byID[$0] } // keep the order you picked them in
+    }
+
+    private static func memory(for asset: PHAsset, at coordinate: CLLocationCoordinate2D) -> PhotoMemory {
+        PhotoMemory(
+            id: asset.localIdentifier,
+            coordinate: coordinate,
+            takenAt: asset.creationDate,
+            isVideo: asset.mediaType == .video,
+            duration: asset.duration,
+            pixelWidth: asset.pixelWidth,
+            pixelHeight: asset.pixelHeight
+        )
+    }
+
     private static func validCoordinate(_ location: CLLocation?) -> CLLocationCoordinate2D? {
         guard let coordinate = location?.coordinate,
               CLLocationCoordinate2DIsValid(coordinate),

@@ -11,14 +11,17 @@ struct CityCluster: Identifiable, Hashable {
     /// Newest first.
     let memories: [PhotoMemory]
 
-    var cover: PhotoMemory? { memories.first }
-    var photoCount: Int { memories.filter { !$0.isVideo }.count }
-    var videoCount: Int { memories.filter { $0.isVideo }.count }
+    /// The newest photo or video (a note only if the city has nothing else).
+    var cover: PhotoMemory? { memories.first { !$0.isNote } ?? memories.first }
+    var photoCount: Int { memories.filter(\.isPhoto).count }
+    var videoCount: Int { memories.filter(\.isVideo).count }
+    var noteCount: Int { memories.filter(\.isNote).count }
 
     var subtitle: String {
         var parts: [String] = []
         if photoCount > 0 { parts.append("\(photoCount) photo\(photoCount == 1 ? "" : "s")") }
         if videoCount > 0 { parts.append("\(videoCount) video\(videoCount == 1 ? "" : "s")") }
+        if noteCount > 0 { parts.append("\(noteCount) note\(noteCount == 1 ? "" : "s")") }
         return parts.joined(separator: " · ")
     }
 
@@ -73,8 +76,8 @@ struct MemoryDay: Identifiable, Hashable {
 
     var id: Date { date ?? .distantFuture }
 
-    /// The best picture to put on the day's card: the first photo, else the first video.
-    var cover: PhotoMemory? { memories.first { !$0.isVideo } ?? memories.first }
+    /// The best picture to put on the day's card: the first photo, else the first video, else a note.
+    var cover: PhotoMemory? { memories.first(where: \.isPhoto) ?? memories.first(where: \.isVideo) ?? memories.first }
 
     /// "Monday, 24 February"
     var longTitle: String {

@@ -9,6 +9,7 @@ struct MemoriesMapView: View {
     @State private var position: MapCameraPosition = .region(MapScope.australiaRegion)
     @State private var scope: MapScope = .australia
     @State private var path: [CityCluster] = []
+    @State private var showingSettings = false
     /// Trip names arrive with the "Start a new trip" feature; for now this is a fixed default.
     @AppStorage("tripName") private var tripName = "Study Abroad Spring 2027"
 
@@ -29,6 +30,31 @@ struct MemoriesMapView: View {
                 .task {
                     location.refresh()
                     VisitMonitor.requestNotificationPermission()
+                }
+                .sheet(isPresented: $showingSettings) {
+                    SettingsView()
+                        .environment(\.colorScheme, .light)
+                }
+                .overlay(alignment: .bottom) { noticeBanner }
+        }
+    }
+
+    /// "Added 3 memories." after adding from the camera roll; disappears on its own.
+    @ViewBuilder private var noticeBanner: some View {
+        if let notice = store.notice {
+            Text(notice)
+                .font(.subheadline)
+                .multilineTextAlignment(.center)
+                .padding(.horizontal, 16)
+                .padding(.vertical, 10)
+                .background(.regularMaterial, in: Capsule())
+                .padding(.horizontal, 20)
+                .padding(.bottom, 130)
+                .transition(.opacity)
+                .onTapGesture { store.notice = nil }
+                .task(id: notice) {
+                    try? await Task.sleep(nanoseconds: 5_000_000_000)
+                    withAnimation { store.notice = nil }
                 }
         }
     }
@@ -65,8 +91,19 @@ struct MemoriesMapView: View {
             Text(tripName)
                 .font(.footnote)
                 .foregroundStyle(.secondary)
-            Text("Memories")
-                .font(.largeTitle.bold())
+            HStack(alignment: .center, spacing: 10) {
+                Text("Memories")
+                    .font(.largeTitle.bold())
+                Spacer()
+                Button { showingSettings = true } label: {
+                    Image(systemName: "slider.horizontal.3")
+                        .font(.title3.weight(.semibold))
+                        .frame(width: 44, height: 44)
+                        .background(Theme.nightCard, in: Circle())
+                }
+                .accessibilityLabel("Settings")
+            }
+            .foregroundStyle(.white)
             Picker("Map zoom", selection: Binding(get: { scope }, set: { move(to: $0) })) {
                 ForEach(MapScope.allCases) { Text($0.title).tag($0) }
             }
@@ -161,9 +198,9 @@ struct MemoriesMapView: View {
     @ViewBuilder private var emptyState: some View {
         if !store.isScanning && store.cities.isEmpty {
             ContentUnavailableView(
-                "No geotagged photos yet",
+                "No memories yet",
                 systemImage: "location.slash",
-                description: Text("Photos taken with Location Services on for the Camera will show up here.")
+                description: Text("Photos taken with Location Services on for the Camera show up here.")
             )
             .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 20))
             .padding(40)
