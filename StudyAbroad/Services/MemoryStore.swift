@@ -185,6 +185,33 @@ final class MemoryStore {
         afterChange(rescan: true)
     }
 
+    // MARK: Backup file
+
+    /// Everything the app adds on top of your camera roll, ready to save to Files.
+    func makeBackup() throws -> Data {
+        let assetKeys = library.allKeys(includingNotes: false)
+        return try Backup.make(context: library.context, cloudIDs: Backup.cloudIDs(for: assetKeys), rule: autoAddRule)
+            .encoded()
+    }
+
+    /// Restores a backup file on top of what's here (nothing you've changed since is overwritten).
+    func restoreBackup(_ data: Data) throws -> String {
+        let file = try BackupFile.decode(data)
+        let result = Backup.restore(file, into: library.context, localIDs: Backup.localIDs(for: file),
+                                    assetExists: Backup.assetExists)
+        library.reload()
+        captions = library.captions
+        if let raw = file.autoAddMode, let mode = AutoAddRule.Mode(rawValue: raw) {
+            var rule = AutoAddRule(mode: mode)
+            rule.start = file.autoAddStart ?? .now
+            rule.end = file.autoAddEnd ?? .now
+            autoAddRule = rule
+            rule.save()
+        }
+        afterChange(rescan: true)
+        return result.message
+    }
+
     /// A memory you'd want to place a new note next to (most recent first).
     var latestMemory: PhotoMemory? {
         cities.compactMap(\.cover).max { ($0.takenAt ?? .distantPast) < ($1.takenAt ?? .distantPast) }

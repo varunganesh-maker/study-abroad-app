@@ -48,6 +48,8 @@ StudyAbroad/
     CapturePlacement        where a hand-added photo with no GPS goes (neighbour within 12 h, else current location)
     CameraRollSaver         saves in-app camera shots to the camera roll with the location stamped on
     VoiceRecorder           records voice notes into the app's own storage + on-device speech-to-text
+    VoiceNoteFiles          where voice notes live (Application Support/VoiceNotes)
+    Backup                  backup file (captions, notes + audio, removed, ratings, auto-add) export/restore
     PhotoLoader             loads thumbnails / full images / videos on demand
     LocationProvider        current location for the map sparkle + "You're in…" card; asks for Always
     VisitMonitor            CLVisit monitoring -> pending Visit + local notification (created at app launch)
@@ -61,7 +63,7 @@ StudyAbroad/
     VisitReviewView         "You've been here" sheet: 0-10 rating slider, recap, Save / Not a visit
     CaptureView             "New moment" (＋ on the map): Note (text + voice) / Photo / Video / Upload
     CaptionEditorView       caption any memory, any length (••• or "Add a caption" in the viewer)
-    SettingsView            auto-add setting, removed memories (slider button on the map)
+    SettingsView            auto-add setting, removed memories, backup save/restore (slider button on the map)
     RatingsView             "Your ratings" tab: visits waiting for a rating (inbox), rated places, ＋ = "I was here"
     CameraPicker, LocationPickerView, CityListView, PermissionView, AssetThumbnail (also draws note cards)
 StudyAbroadTests/           unit tests (Swift Testing), no photos needed; CI runs these

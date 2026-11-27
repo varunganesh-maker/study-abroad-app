@@ -1,4 +1,5 @@
 import SwiftUI
+import UniformTypeIdentifiers
 
 /// App settings, opened from the slider button on the map.
 /// For now: "Add new photos automatically" and memories you removed from the app.
@@ -7,6 +8,11 @@ struct SettingsView: View {
     @Environment(\.dismiss) private var dismiss
     @State private var rule = AutoAddRule()
     @State private var confirmingUnhide = false
+    @State private var exporting = false
+    @State private var importing = false
+    @State private var backupDocument: BackupDocument?
+    @State private var backupMessage: String?
+    @AppStorage("backup.lastSaved") private var lastBackup: Double = 0
 
     var body: some View {
         NavigationStack {
@@ -47,6 +53,23 @@ struct SettingsView: View {
                 }
 
                 Section {
+                    Button("Save a backup…") { saveBackup() }
+                        .accessibilityIdentifier("saveBackup")
+                    Button("Restore from a backup…") { importing = true }
+                    if let backupMessage {
+                        Text(backupMessage)
+                            .font(.footnote)
+                            .foregroundStyle(.secondary)
+                    }
+                } header: {
+                    Text("Backup")
+                } footer: {
+                    Text(lastBackupText
+                         + " The backup holds your captions, notes, voice notes and ratings (your photos are already in Photos)."
+                         + " Save it to iCloud Drive so it's safe if your phone is lost. Restoring never overwrites anything you've changed since.")
+                }
+
+                Section {
                     LabeledContent("Photos and videos", value: "Stay in your camera roll")
                     LabeledContent("Captions and notes", value: "On this phone")
                 } header: {
@@ -71,10 +94,52 @@ struct SettingsView: View {
             .onChange(of: rule.start) { _, start in
                 if rule.end < start { rule.end = start }
             }
+            .fileExporter(isPresented: $exporting, document: backupDocument, contentType: .json,
+                          defaultFilename: Backup.suggestedFilename) { result in
+                switch result {
+                case .success:
+                    lastBackup = Date.now.timeIntervalSince1970
+                    backupMessage = "Backup saved."
+                case .failure:
+                    backupMessage = "The backup wasn't saved."
+                }
+            }
+            .fileImporter(isPresented: $importing, allowedContentTypes: [.json]) { result in
+                restore(result)
+            }
             .confirmationDialog("Bring back \(store.hiddenCount) removed memories?", isPresented: $confirmingUnhide,
                                 titleVisibility: .visible) {
                 Button("Bring them back") { store.unhideAll() }
             }
+        }
+    }
+
+    private var lastBackupText: String {
+        guard lastBackup > 0 else { return "No backup yet." }
+        let date = Date(timeIntervalSince1970: lastBackup)
+        let days = Calendar.current.dateComponents([.day], from: date, to: .now).day ?? 0
+        let when = "Last backup: \(date.formatted(date: .abbreviated, time: .omitted))."
+        return days >= 7 ? when + " Time for a new one." : when
+    }
+
+    private func saveBackup() {
+        do {
+            backupDocument = BackupDocument(data: try store.makeBackup())
+            exporting = true
+        } catch {
+            backupMessage = "Couldn't make a backup: \(error.localizedDescription)"
+        }
+    }
+
+    private func restore(_ result: Result<URL, Error>) {
+        guard case .success(let url) = result else { return }
+        let opened = url.startAccessingSecurityScopedResource()
+        defer { if opened { url.stopAccessingSecurityScopedResource() } }
+        do {
+            backupMessage = try store.restoreBackup(Data(contentsOf: url))
+            rule = store.autoAddRule
+        } catch {
+            backupMessage = "That file isn't a Study Abroad backup."
         }
     }
 }

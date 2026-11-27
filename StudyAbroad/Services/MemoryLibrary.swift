@@ -7,11 +7,17 @@ import SwiftData
 /// even with thousands of photos.
 @MainActor
 final class MemoryLibrary {
-    private let context: ModelContext
+    let context: ModelContext
     private var entries: [String: MemoryEntry] = [:]
 
     init(context: ModelContext) {
         self.context = context
+        reload()
+    }
+
+    /// Re-reads every entry from the database (after restoring a backup).
+    func reload() {
+        entries = [:]
         let all = (try? context.fetch(FetchDescriptor<MemoryEntry>())) ?? []
         for entry in all {
             if entries[entry.key] == nil {
@@ -23,6 +29,10 @@ final class MemoryLibrary {
     }
 
     var count: Int { entries.count }
+
+    func allKeys(includingNotes: Bool) -> [String] {
+        entries.values.filter { includingNotes || !$0.isNote }.map(\.key)
+    }
 
     func entry(for key: String) -> MemoryEntry? { entries[key] }
 
