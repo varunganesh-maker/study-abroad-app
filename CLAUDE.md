@@ -69,10 +69,20 @@ StudyAbroad/
 StudyAbroadTests/           unit tests (Swift Testing), no photos needed; CI runs these
 StudyAbroadUITests/         UI tests (XCTest) driving the app; need photos in the simulator
 scripts/make-test-media.swift  fake geotagged photos/videos for the simulator
+scripts/setup-signing.sh     saves your Apple team ID in Config/Local.xcconfig (gitignored)
+Config/Signing.xcconfig      shared signing settings; includes Config/Local.xcconfig
 ```
 
 Settings that would normally live in Info.plist are build settings (`INFOPLIST_KEY_*`) in
 `project.pbxproj`, e.g. the photo permission message.
+
+**Signing is local, never in the project file.** `Config/Signing.xcconfig` (committed) sets
+`CODE_SIGN_STYLE = Automatic` for every target and includes `Config/Local.xcconfig` (gitignored), which
+holds the developer's own `DEVELOPMENT_TEAM`. `scripts/setup-signing.sh` writes that file. Never add
+`DEVELOPMENT_TEAM`, `CODE_SIGN_*`, `PROVISIONING_PROFILE*` or a team ID to `project.pbxproj` or any
+committed file, and never commit `Config/Local.xcconfig`. If Xcode's Signing tab adds a team to the
+project file, discard that change (`git checkout -- StudyAbroad.xcodeproj/project.pbxproj`) instead of
+committing it.
 
 ## Design
 
@@ -166,6 +176,8 @@ so imports never overwrite Varun's own ratings).
 
 - Photos never leave the phone. The app stores pointers (`localIdentifier`), not copies.
 - Ask Varun before starting a new phase or anything that costs money.
+- Don't touch signing settings (team, signing style, provisioning) in `project.pbxproj`. See "Signing
+  is local" above: a team in the shared project file breaks the build for everyone else on each pull.
 - Beli has no API: screenshot sync (Vision OCR) + "Rate in Beli" buttons. Private-API sync only if Varun explicitly says go.
   BeliRating stays separate so imports never overwrite Varun's own ratings.
 - Camcorder clips have no GPS: place them by matching timestamps to phone location history.

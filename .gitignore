@@ -5,3 +5,6 @@ build/
 xcuserdata/
 *.xcscmblueprint
 .DS_Store
+
+# Your own Apple team ID (see Config/Signing.xcconfig)
+Config/Local.xcconfig
