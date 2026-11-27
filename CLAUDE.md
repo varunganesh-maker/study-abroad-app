@@ -33,15 +33,21 @@ The Xcode project uses a *synchronized folder* (Xcode 16+): any `.swift` file ad
 ```
 StudyAbroad/
   StudyAbroadApp.swift      app entry point
-  ContentView.swift         permission gate + tab bar (Memories, Cities)
-  Models/                   PhotoMemory (pointer to a camera roll item), CityCluster,
-                            Visit (SwiftData: detected visit + rating + recap)
+  ContentView.swift         permission gate + tab bar (Memories, Cities, Ratings)
+  Models/                   PhotoMemory (one memory on the map: photo, video, text note or voice note),
+                            MemoryEntry (SwiftData: saved memory = Photos pointer + caption, or a note),
+                            CityCluster, Visit (SwiftData: detected visit + rating + recap)
   Services/
     PhotoLibraryScanner     reads geotagged photos/videos from Photos
     UntaggedMediaPlacer     gives GPS-less videos the location of a photo taken within 2 h
     CityGrouper             groups memories into cities (see below)
     KnownCities             Australian city circles (geocoder returns suburbs there)
-    MemoryStore             app state, scans on launch and each time the app opens
+    MemoryStore             app state, scans on launch and each time the app opens; captions; adding/removing
+    MemoryLibrary           reads/writes MemoryEntry rows (auto-add, captions, notes, "Remove from app")
+    AutoAddRule             the "Add new photos automatically" setting (all / from a date / between dates / off)
+    CapturePlacement        where a hand-added photo with no GPS goes (neighbour within 12 h, else current location)
+    CameraRollSaver         saves in-app camera shots to the camera roll with the location stamped on
+    VoiceRecorder           records voice notes into the app's own storage + on-device speech-to-text
     PhotoLoader             loads thumbnails / full images / videos on demand
     LocationProvider        current location for the map sparkle + "You're in…" card; asks for Always
     VisitMonitor            CLVisit monitoring -> pending Visit + local notification (created at app launch)
@@ -53,7 +59,11 @@ StudyAbroad/
     AllMemoriesView         every memory in a city, by day or by type
     MemoryViewer            full-screen story viewer (TabView page style) with custom video controls
     VisitReviewView         "You've been here" sheet: 0-10 rating slider, recap, Save / Not a visit
-    CityListView, PermissionView, AssetThumbnail
+    CaptureView             "New moment" (＋ on the map): Note (text + voice) / Photo / Video / Upload
+    CaptionEditorView       caption any memory, any length (••• or "Add a caption" in the viewer)
+    SettingsView            auto-add setting, removed memories (slider button on the map)
+    RatingsView             "Your ratings" tab: visits waiting for a rating (inbox), rated places, ＋ = "I was here"
+    CameraPicker, LocationPickerView, CityListView, PermissionView, AssetThumbnail (also draws note cards)
 StudyAbroadTests/           unit tests (Swift Testing), no photos needed; CI runs these
 StudyAbroadUITests/         UI tests (XCTest) driving the app; need photos in the simulator
 scripts/make-test-media.swift  fake geotagged photos/videos for the simulator
@@ -65,7 +75,8 @@ Settings that would normally live in Info.plist are build settings (`INFOPLIST_K
 ## Design
 
 Screens follow Varun's Figma mockups: https://www.figma.com/design/XiGd2aOYGruzViIPRr56sN
-(10 screens; Memories map, Sydney stories, All memories and Memory viewer are built). Use the Figma
+(10 screens; Memories map, Sydney stories, All memories, Memory viewer, You've been here and Capture a
+moment are built). Use the Figma
 connector to read a frame before changing a screen. Accent colour is indigo (AccentColor asset).
 
 ## How city grouping works (phase 1)
@@ -137,6 +148,17 @@ detection with "You've been here" sheet (0-10 rating + recap in SwiftData), DEBU
 
 City, Place, Visit, Rating, Memory (photo library ID pointer, never a copy), BeliRating (kept separate
 so imports never overwrite Varun's own ratings).
+
+## How memories are saved (week 1)
+
+- Every memory shown on the map has a `MemoryEntry` row. Camera roll items are pointers (`key` =
+  `localIdentifier`) plus caption + `isHidden`; text/voice notes are stored whole (voice audio in
+  Application Support/VoiceNotes, never the camera roll).
+- Each scan, `MemoryLibrary.autoAdd` saves new camera roll items the `AutoAddRule` allows. The default is
+  "All photos", so updating the app shows the same map as before. Changing the rule never removes anything.
+- "Remove from app" hides a photo/video (still in Photos, caption kept); notes are deleted.
+- `MemoryEntry` has defaults for every property and no unique constraints, so CloudKit can be switched on
+  later without a migration.
 
 ## Rules
 
