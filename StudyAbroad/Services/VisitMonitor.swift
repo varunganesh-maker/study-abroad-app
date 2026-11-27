@@ -20,12 +20,37 @@ final class VisitMonitor {
     }
 
     /// Visits need location permission. The map screen asks for it; this starts listening once given.
+    /// With "Always", the backup check (significant location changes) runs too; it stops, and its one
+    /// saved point is wiped, as soon as permission drops below Always.
     func startIfAllowed() {
         switch manager.authorizationStatus {
-        case .authorizedAlways, .authorizedWhenInUse:
+        case .authorizedAlways:
             manager.startMonitoringVisits()
+            if CLLocationManager.significantLocationChangeMonitoringAvailable() {
+                manager.startMonitoringSignificantLocationChanges()
+            }
+        case .authorizedWhenInUse:
+            manager.startMonitoringVisits()
+            stopBackupCheck()
         default:
-            break
+            stopBackupCheck()
+        }
+    }
+
+    private func stopBackupCheck() {
+        manager.stopMonitoringSignificantLocationChanges()
+        BackupVisitDetector.clear()
+    }
+
+    /// A significant location change: maybe you just left somewhere worth rating.
+    fileprivate func handleLocation(latitude: Double, longitude: Double, accuracy: Double, time: Date) {
+        guard manager.authorizationStatus == .authorizedAlways else { return }
+        var detector = BackupVisitDetector.load()
+        let candidate = detector.process(latitude: latitude, longitude: longitude, accuracy: accuracy, time: time)
+        detector.save()
+        if let candidate {
+            record(coordinate: candidate.coordinate, arrival: candidate.arrival, departure: candidate.departure,
+                   source: .backup)
         }
     }
 
@@ -46,19 +71,42 @@ final class VisitMonitor {
     /// Saves a visit, looks up the place name, and sends a notification. Also used by the test button.
     /// `manual`: you tapped "I was here", so skip the "you said Not a visit here before" filter and the
     /// notification, and show the rating sheet straight away (named "This spot" until the lookup finishes).
-    func record(coordinate: CLLocationCoordinate2D, arrival: Date, departure: Date, manual: Bool = false) {
+    /// `source`: how the visit was noticed; see `VisitDedupe` for how duplicates are avoided.
+    func record(coordinate: CLLocationCoordinate2D, arrival: Date, departure: Date, manual: Bool = false,
+                source: Visit.Source = .visit) {
+        let source: Visit.Source = manual ? .manual : source
         let all = (try? context.fetch(FetchDescriptor<Visit>())) ?? []
-        let here = CLLocation(latitude: coordinate.latitude, longitude: coordinate.longitude)
-        func distance(_ visit: Visit) -> CLLocationDistance {
-            CLLocation(latitude: visit.latitude, longitude: visit.longitude).distance(from: here)
+        let existing = all.map {
+            VisitDedupe.Existing(coordinate: $0.coordinate, arrival: $0.arrival, departure: $0.departure,
+                                 status: $0.status, source: $0.source)
         }
-
-        // Same visit reported twice.
-        if all.contains(where: { abs($0.arrival.timeIntervalSince(arrival)) < 120 && distance($0) < 150 }) { return }
-        // You've said "Not a visit" here twice already (home, the bus stop…): stop asking.
-        if !manual && all.filter({ $0.status == .dismissed && distance($0) < 100 }).count >= 2 { return }
-
-        let visit = Visit(coordinate: coordinate, arrival: arrival, departure: departure)
+        let visit: Visit
+        switch VisitDedupe.decide(coordinate: coordinate, arrival: arrival, departure: departure,
+                                  source: source, existing: existing) {
+        case .skip:
+            return
+        case .replace(let index):
+            // iOS's own visit is more precise than the backup guess: move that visit to the real spot.
+            // It was already announced, so no second notification.
+            let old = all[index]
+            old.latitude = coordinate.latitude
+            old.longitude = coordinate.longitude
+            old.arrival = arrival
+            old.departure = departure
+            old.source = .visit
+            try? context.save()
+            Task {
+                let place = await PlaceNamer.lookUp(coordinate)
+                if let name = place.name { old.placeName = name }
+                old.area = place.area
+                old.city = place.city
+                try? context.save()
+            }
+            return
+        case .insert:
+            visit = Visit(coordinate: coordinate, arrival: arrival, departure: departure)
+        }
+        visit.source = source
         if manual { visit.placeName = Self.manualPlaceholder }
         context.insert(visit)
         try? context.save()
@@ -122,6 +170,19 @@ final class VisitMonitor {
             let arrival = visit.arrivalDate
             let departure = visit.departureDate
             Task { @MainActor in owner?.handle(coordinate: coordinate, arrival: arrival, departure: departure) }
+        }
+
+        /// Significant location changes (the backup visit check). Only the newest fix is used.
+        func locationManager(_ manager: CLLocationManager, didUpdateLocations locations: [CLLocation]) {
+            guard let latest = locations.last else { return }
+            let owner = self.owner
+            let latitude = latest.coordinate.latitude
+            let longitude = latest.coordinate.longitude
+            let accuracy = latest.horizontalAccuracy
+            let time = latest.timestamp
+            Task { @MainActor in
+                owner?.handleLocation(latitude: latitude, longitude: longitude, accuracy: accuracy, time: time)
+            }
         }
 
         func locationManager(_ manager: CLLocationManager, didFailWithError error: Error) {}

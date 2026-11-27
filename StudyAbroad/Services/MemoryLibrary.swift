@@ -77,6 +77,9 @@ final class MemoryLibrary {
         if let existing = entries[id] {
             entry = existing
             entry.isHidden = false
+            // You chose it just now, so it counts as "recently added" even if auto-add saved it before.
+            entry.source = source
+            entry.addedAt = .now
         } else {
             entry = MemoryEntry(key: id, kind: kind, source: source)
             context.insert(entry)
@@ -134,6 +137,17 @@ final class MemoryLibrary {
     func unhideAll() {
         for entry in entries.values where entry.isHidden { entry.isHidden = false }
         save()
+    }
+
+    // MARK: Recently added
+
+    /// Keys of memories you added yourself (camera, picker, notes) since `date`, newest first.
+    /// Auto-added photos and removed ones are left out.
+    func recentlyAddedKeys(since date: Date) -> [String] {
+        entries.values
+            .filter { $0.source != .autoAdd && !$0.isHidden && $0.addedAt >= date }
+            .sorted { $0.addedAt > $1.addedAt }
+            .map(\.key)
     }
 
     // MARK: What goes on the map

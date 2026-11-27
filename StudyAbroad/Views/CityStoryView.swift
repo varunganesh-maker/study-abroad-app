@@ -64,25 +64,35 @@ struct CityStoryView: View {
                         .padding(.top, 26)
                         .padding(.bottom, 10)
                     ForEach(lovedPlaces.prefix(5)) { visit in
-                        HStack(alignment: .firstTextBaseline) {
-                            Text(visit.displayName)
-                            Spacer()
-                            Text(visit.rating ?? 0, format: .number.precision(.fractionLength(1)))
-                                .bold()
-                                .foregroundStyle(.tint)
-                                .monospacedDigit()
-                        }
-                        .font(.subheadline)
-                        .padding(.vertical, 6)
-                        .padding(.horizontal, 2)
-                        if !visit.recap.isEmpty {
-                            Text(visit.recap)
-                                .font(.footnote)
-                                .foregroundStyle(.secondary)
-                                .lineLimit(2)
+                        NavigationLink {
+                            PlaceView(visit: visit)
+                        } label: {
+                            VStack(alignment: .leading, spacing: 0) {
+                                HStack(alignment: .firstTextBaseline) {
+                                    Text(visit.displayName)
+                                        .foregroundStyle(.primary)
+                                    Spacer()
+                                    Text(visit.rating ?? 0, format: .number.precision(.fractionLength(1)))
+                                        .bold()
+                                        .foregroundStyle(.tint)
+                                        .monospacedDigit()
+                                }
+                                .font(.subheadline)
+                                .padding(.vertical, 6)
                                 .padding(.horizontal, 2)
-                                .padding(.bottom, 4)
+                                if !visit.recap.isEmpty {
+                                    Text(visit.recap)
+                                        .font(.footnote)
+                                        .foregroundStyle(.secondary)
+                                        .lineLimit(2)
+                                        .multilineTextAlignment(.leading)
+                                        .padding(.horizontal, 2)
+                                        .padding(.bottom, 4)
+                                }
+                            }
+                            .contentShape(Rectangle())
                         }
+                        .buttonStyle(.plain)
                     }
                 }
             }
@@ -127,6 +137,9 @@ struct CityStoryView: View {
 struct ViewerRequest: Identifiable {
     let memories: [PhotoMemory]
     let start: PhotoMemory
+    /// Shown at the top of the viewer (a city's name, "Recently added"). Screens that know their own
+    /// title (the city page) can leave it empty.
+    var title: String = ""
     var id: String { start.id + "|\(memories.count)" }
 }
 

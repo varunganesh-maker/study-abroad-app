@@ -29,12 +29,29 @@ final class Visit {
     var rating: Double?
     var recap: String = ""
     var statusRaw: String = Status.pending.rawValue
+    /// How the visit was noticed. Has a default so existing visits keep working (no migration needed).
+    var sourceRaw: String = Source.visit.rawValue
 
     init(coordinate: CLLocationCoordinate2D, arrival: Date, departure: Date) {
         self.latitude = coordinate.latitude
         self.longitude = coordinate.longitude
         self.arrival = arrival
         self.departure = departure
+    }
+
+    /// How a visit was noticed.
+    enum Source: String, Codable {
+        /// iOS's own visit detection (`CLVisit`): the most precise.
+        case visit
+        /// The backup check (significant location changes) when iOS's visit detection missed it.
+        case backup
+        /// You tapped "I was here".
+        case manual
+    }
+
+    var source: Source {
+        get { Source(rawValue: sourceRaw) ?? .visit }
+        set { sourceRaw = newValue.rawValue }
     }
 
     var status: Status {

@@ -55,5 +55,6 @@ struct CaptionEditorView: View {
                 focused = true
             }
         }
+        .lightSheet()
     }
 }

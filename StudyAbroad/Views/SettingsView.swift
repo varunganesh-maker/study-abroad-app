@@ -114,6 +114,7 @@ struct SettingsView: View {
                 Button("Bring them back") { store.unhideAll() }
             }
         }
+        .lightSheet()
     }
 
     private var lastBackupText: String {

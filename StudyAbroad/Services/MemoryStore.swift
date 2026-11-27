@@ -30,6 +30,11 @@ final class MemoryStore {
     private(set) var hiddenCount = 0
     /// A short message after adding things, e.g. "Added 3 memories".
     var notice: String?
+    /// The memory you saved last (a note, a photo or video you took, or the first one you picked).
+    /// The map flies to its city and says "Saved to …" once it's on the map, then clears this.
+    var justSaved: String?
+    /// Memories you added yourself in the last 7 days, newest first ("Recently added" on the map).
+    private(set) var recentlyAdded: [PhotoMemory] = []
 
     @ObservationIgnored let library: MemoryLibrary
     @ObservationIgnored private let grouper = CityGrouper()
@@ -84,6 +89,8 @@ final class MemoryStore {
             if Task.isCancelled { return }
             let memories = shown.memories + extra
             totalGeotagged = memories.count
+            recentlyAdded = Self.recent(keys: library.recentlyAddedKeys(since: .now.addingTimeInterval(-7 * 86_400)),
+                                        in: memories)
             let final = await grouper.group(memories) { [weak self] partial, remaining in
                 // A newer rebuild may have started; don't let this one's half-finished list land on top.
                 guard !Task.isCancelled else { return }
@@ -96,8 +103,22 @@ final class MemoryStore {
                 cities = final
                 remainingLookups = 0
                 isScanning = false
+                // Saved something that didn't make it onto the map (no place): don't wait for it forever.
+                if let id = justSaved, city(containing: id) == nil { justSaved = nil }
             }
         }
+    }
+
+    /// The memories for `keys`, in the same order, skipping any that aren't on the map. At most 12.
+    static func recent(keys: [String], in memories: [PhotoMemory]) -> [PhotoMemory] {
+        guard !keys.isEmpty else { return [] }
+        let byID = Dictionary(memories.map { ($0.id, $0) }, uniquingKeysWith: { first, _ in first })
+        return Array(keys.compactMap { byID[$0] }.prefix(12))
+    }
+
+    /// The city a memory ended up in, if it's on the map.
+    func city(containing id: String) -> CityCluster? {
+        cities.first { city in city.memories.contains { $0.id == id } }
     }
 
     // MARK: Captions
@@ -137,6 +158,7 @@ final class MemoryStore {
                 + "\(unplaced) had no location, so \(unplaced == 1 ? "it" : "they") couldn't go on the map."
         }
         notice = message.isEmpty ? nil : message
+        justSaved = placed.first
         afterChange(rescan: true)
         return placed
     }
@@ -147,6 +169,8 @@ final class MemoryStore {
         if !caption.isEmpty { setCaption(caption, for: id) }
         if coordinate == nil {
             notice = "Saved to your camera roll, but with no location it can't go on the map. Turn on Location Services to place new photos."
+        } else {
+            justSaved = id
         }
         afterChange(rescan: true)
     }
@@ -159,6 +183,7 @@ final class MemoryStore {
         let id = library.addNote(kind: kind, text: trimmed, coordinate: coordinate, takenAt: takenAt,
                                  duration: duration, key: key ?? MemoryEntry.newNoteKey())
         captions[id] = trimmed.isEmpty ? nil : trimmed
+        justSaved = id
         afterChange(rescan: false)
         return id
     }
