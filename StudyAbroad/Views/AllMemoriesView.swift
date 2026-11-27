@@ -82,6 +82,8 @@ struct AllMemoriesView: View {
                                     .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
                             }
                             .buttonStyle(.plain)
+                            .accessibilityLabel(memory.isVideo ? "Video, \(memory.durationText)" : "Photo")
+                            .accessibilityIdentifier("memoryCell")
                         }
                     }
                 }

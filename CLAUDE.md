@@ -37,6 +37,7 @@ StudyAbroad/
                             Visit (SwiftData: detected visit + rating + recap)
   Services/
     PhotoLibraryScanner     reads geotagged photos/videos from Photos
+    UntaggedMediaPlacer     gives GPS-less videos the location of a photo taken within 2 h
     CityGrouper             groups memories into cities (see below)
     KnownCities             Australian city circles (geocoder returns suburbs there)
     MemoryStore             app state, scans on launch and each time the app opens
@@ -49,9 +50,12 @@ StudyAbroad/
     MemoriesMapView         night-style map home screen
     CityStoryView           a city's page: latest-day card + "Your days" row
     AllMemoriesView         every memory in a city, by day or by type
-    MemoryViewer            full-screen story viewer with custom video controls
+    MemoryViewer            full-screen story viewer (TabView page style) with custom video controls
     VisitReviewView         "You've been here" sheet: 0-10 rating slider, recap, Save / Not a visit
     CityListView, PermissionView, AssetThumbnail
+StudyAbroadTests/           unit tests (Swift Testing), no photos needed; CI runs these
+StudyAbroadUITests/         UI tests (XCTest) driving the app; need photos in the simulator
+scripts/make-test-media.swift  fake geotagged photos/videos for the simulator
 ```
 
 Settings that would normally live in Info.plist are build settings (`INFOPLIST_KEY_*`) in
@@ -77,7 +81,8 @@ connector to read a frame before changing a screen. Accent colour is indigo (Acc
 
 ## Building and checking your work
 
-- CI: `.github/workflows/build.yml` compiles for the simulator on every PR. Check it passes.
+- CI: `.github/workflows/build.yml` compiles for the simulator and runs the unit tests on every PR.
+- Tests: see `docs/testing.md`. ⌘U in Xcode runs unit + UI tests (shared `StudyAbroad` scheme).
 - Locally on a Mac: `xcodebuild build -project StudyAbroad.xcodeproj -target StudyAbroad -sdk iphonesimulator CODE_SIGNING_ALLOWED=NO`
 - The simulator has few geotagged photos. Drag photos onto the simulator window to add some, or test
   on the real phone.
